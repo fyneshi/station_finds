@@ -5,7 +5,7 @@
  * Processes AJAX requests from the frontend for:
  *   - signup:                         Register a new user
  *   - login:                          Authenticate an existing user (regular or admin)
- *   - forgot_password: { email, contact? }  ask the admins to reset a password (no reset codes are handed out)
+ *   - reset_password:  { email, username, new_password, confirm_password }  forgot password (not for admin accounts)
  *   - logout:                         Destroy session
  */
 
@@ -150,48 +150,64 @@ switch ($action) {
         break;
 
     // ═══════════════════════════════════════════════════════════
-    // FORGOT PASSWORD: ask the admins for a reset
-    // The site can't send emails, so no reset code is ever handed out here (anyone could have
-    // typed someone else's email). The request goes to Admin › Feedback; an admin resets the
-    // password in User Management and passes the temporary one on.
+    // FORGOT PASSWORD: reset it yourself with your email + username
+    // Kept simple for the project (no emails are sent). Safeguards: both must match, admin
+    // accounts can't be reset here, failed tries are limited, and the owner is notified.
     // ═══════════════════════════════════════════════════════════
-    case 'forgot_password':
-        $email   = trim((string) ($input['email'] ?? ''));
-        $contact = mb_substr(trim(preg_replace('/\s+/', ' ', (string) ($input['contact'] ?? ''))), 0, 100);
+    case 'reset_password':
+        $email    = trim((string) ($input['email'] ?? ''));
+        $username = trim((string) ($input['username'] ?? ''));
+        $new      = (string) ($input['new_password'] ?? '');
+        $confirm  = (string) ($input['confirm_password'] ?? '');
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            echo json_encode(['success' => false, 'message' => 'Please enter a valid email address.']);
+        if ($email === '' || $username === '' || $new === '' || $confirm === '') {
+            echo json_encode(['success' => false, 'message' => 'Please fill in every field.']);
+            exit;
+        }
+        if (strlen($new) < 8) {
+            echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters.']);
+            exit;
+        }
+        if ($new !== $confirm) {
+            echo json_encode(['success' => false, 'message' => 'Passwords do not match.']);
             exit;
         }
 
-        // Same answer whether or not the email has an account, so this can't be used to check emails
-        $answer = ['success' => true, 'message' => 'Request sent. If that email has an account, an admin will reset its password.'];
+        // At most 5 wrong email/username pairs per 15 minutes from this browser
+        $tries = array_filter($_SESSION['reset_fails'] ?? [], fn($t) => $t > time() - 900);
+        if (count($tries) >= 5) {
+            echo json_encode(['success' => false, 'message' => 'Too many tries. Please wait 15 minutes, or ask an admin to reset it.']);
+            exit;
+        }
 
-        $stmt = $conn->prepare("SELECT id, username FROM users WHERE email = ? AND status = 'active'");
+        $stmt = $conn->prepare("SELECT id, username, role, status FROM users WHERE email = ?");
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $account = $stmt->get_result()->fetch_assoc();
         $stmt->close();
-        if (!$account) { echo json_encode($answer); exit; }
 
-        // One open request per account per hour (stops someone flooding the admins)
-        $stmt = $conn->prepare("SELECT 1 FROM feedback WHERE user_id = ? AND subject = 'Password reset request'
-                                AND status IN ('pending', 'escalated') AND created_at >= NOW() - INTERVAL 1 HOUR");
-        $stmt->bind_param("i", $account['id']);
-        $stmt->execute();
-        $recent = $stmt->get_result()->num_rows > 0;
-        $stmt->close();
-        if (!$recent) {
-            $note = 'Asked to reset their password from the login page.'
-                  . ($contact !== '' ? ' Reach them at: ' . $contact . '.' : ' No contact details given.')
-                  . ' Reset it in User Management › Manage › Reset password, then pass the temporary password on privately.';
-            $stmt = $conn->prepare("INSERT INTO feedback (user_id, name, email, type, subject, message, status)
-                                    VALUES (?, ?, ?, 'platform', 'Password reset request', ?, 'pending')");
-            $stmt->bind_param("isss", $account['id'], $account['username'], $email, $note);
-            $stmt->execute();
-            $stmt->close();
+        // Same answer for every miss, so this can't be used to find out which emails exist.
+        // Admin and suspended accounts can't be reset from the login page.
+        if (!$account || strcasecmp($account['username'], $username) !== 0
+            || $account['role'] === 'admin' || $account['status'] !== 'active') {
+            $tries[] = time();
+            $_SESSION['reset_fails'] = array_values($tries);
+            echo json_encode(['success' => false, 'message' => "That email and username don't match an account we can reset here."]);
+            exit;
         }
-        echo json_encode($answer);
+
+        $hash = password_hash($new, PASSWORD_DEFAULT);
+        $stmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
+        $stmt->bind_param("si", $hash, $account['id']);
+        $stmt->execute();
+        $stmt->close();
+        unset($_SESSION['reset_fails']);
+
+        require_once 'inbox.php';
+        sf_notify($conn, (int) $account['id'], 'security', 'Your password was changed',
+            'Your password was reset from the login page. If this wasn\'t you, contact support@stationfinds.edu.ph right away.', 'account.php?tab=credentials');
+
+        echo json_encode(['success' => true, 'message' => 'Password reset! You can log in with your new password.']);
         break;
 
     // ═══════════════════════════════════════════════════════════

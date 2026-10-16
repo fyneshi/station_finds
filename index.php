@@ -175,51 +175,47 @@ require_once 'db_setup.php';
 
         <!-- VIEW 2: FORGOT PASSWORD -->
         <div id="view-forgot" class="view-container">
-          <h2 class="card-title">Forgot password?</h2>
+          <h2 class="card-title">Reset your password</h2>
           <p class="card-subtitle">
-            Enter the email linked to your account and a Station Finds admin will reset your password.
+            Enter your account's email and username, then choose a new password.
           </p>
 
-          <form onsubmit="handleForgotSubmit(event)">
+          <form onsubmit="handleResetSubmit(event)" novalidate>
             <div class="form-group">
-              <label class="form-label">Email</label>
-              <input type="email" id="forgotEmail" class="form-input" placeholder="name@email.com" required />
+              <label class="form-label" for="forgotEmail">Email</label>
+              <input type="email" id="forgotEmail" class="form-input" placeholder="name@email.com" autocomplete="email" required />
             </div>
             <div class="form-group">
-              <label class="form-label" for="forgotContact">How can we reach you? <span style="font-weight: 500; color: #71717a;">(optional)</span></label>
-              <input type="text" id="forgotContact" class="form-input" maxlength="100" placeholder="e.g. 0917 123 4567 or your school email" />
+              <label class="form-label" for="forgotUsername">Username</label>
+              <input type="text" id="forgotUsername" class="form-input" placeholder="Your username" autocomplete="username" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="newPassword">New password</label>
+              <div class="input-wrapper">
+                <input type="password" id="newPassword" class="form-input" placeholder="At least 8 characters" autocomplete="new-password" required />
+                <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('newPassword', this)" aria-label="Show password">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="confirmNewPassword">Confirm new password</label>
+              <div class="input-wrapper">
+                <input type="password" id="confirmNewPassword" class="form-input" placeholder="Re-enter new password" autocomplete="new-password" required />
+                <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('confirmNewPassword', this)" aria-label="Show password">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
             </div>
 
-            <button type="submit" class="btn-primary">Request a reset</button>
+            <button type="submit" class="btn-primary">Reset password</button>
           </form>
 
           <div class="card-footer-text">
+            Forgot your username too? Ask an admin to reset it for you.
+            <br>
             Remembered your password?
             <button type="button" class="link-action" onclick="showView('auth'); setAuthMode('login');">Log in</button>
-          </div>
-        </div>
-
-        <!-- VIEW 3: RESET REQUESTED -->
-        <div id="view-check-email" class="view-container text-center">
-          <div class="email-icon-badge">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="11" width="18" height="11" rx="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-          </div>
-
-          <h2 class="card-title">Request sent</h2>
-          <p class="card-subtitle">
-            If <strong id="displaySentEmail" style="color: #111827;"></strong> has an account, a Station Finds admin
-            will reset its password and get a temporary one to you. Log in with it, then set your own under
-            <strong>Account › Login Credentials</strong>.
-          </p>
-
-          <button type="button" class="btn-primary" onclick="showView('auth'); setAuthMode('login');">Back to log in</button>
-
-          <div class="card-footer-text">
-            Need it sooner?
-            <a class="link-action" href="mailto:support@stationfinds.edu.ph">Contact support</a>
           </div>
         </div>
 
@@ -227,6 +223,6 @@ require_once 'db_setup.php';
     </div>
   </div>
 
-  <script src="js/script.js?v=4"></script>
+  <script src="js/script.js?v=5"></script>
 </body>
 </html>

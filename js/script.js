@@ -128,29 +128,37 @@ async function handleAuthSubmit(e) {
   }
 }
 
-// ── Forgot Password ──────────────────────────────────────────────
-async function handleForgotSubmit(e) {
+// ── Forgot Password: email + username + new password (not for admin accounts) ──
+async function handleResetSubmit(e) {
   e.preventDefault();
-  const email   = document.getElementById('forgotEmail').value.trim();
-  const contact = document.getElementById('forgotContact').value.trim();
-  const btn     = e.target.querySelector('button[type="submit"]');
-  btn.disabled = true;
+  const email    = document.getElementById('forgotEmail').value.trim();
+  const username = document.getElementById('forgotUsername').value.trim();
+  const password = document.getElementById('newPassword').value;
+  const confirm  = document.getElementById('confirmNewPassword').value;
 
-  // Asks the admins to reset it (no reset codes are handed out: see auth_handler.php)
-  const result = await sendAuthRequest({ action: 'forgot_password', email, contact });
+  if (!email || !username || !password || !confirm) { showToast('Please fill in every field.', 'error'); return; }
+  if (password.length < 8) { showToast('Password must be at least 8 characters.', 'error'); return; }
+  if (password !== confirm) { showToast('Passwords do not match. Please try again.', 'error'); return; }
+
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  const result = await sendAuthRequest({ action: 'reset_password', email, username, new_password: password, confirm_password: confirm });
   btn.disabled = false;
 
   if (result.success) {
-    document.getElementById('displaySentEmail').textContent = email;
+    showToast(result.message, 'success');
     e.target.reset();
-    showView('check-email');
+    // Back to log in, with the email already filled in
+    setTimeout(() => {
+      showView('auth');
+      setAuthMode('login');
+      document.getElementById('authEmail').value = email;
+      document.getElementById('authPassword').focus();
+    }, 1200);
   } else {
     showToast(result.message, 'error');
   }
 }
-
-
-
 // ── Logout ───────────────────────────────────────────────────────
 async function handleLogout() {
   const result = await sendAuthRequest({ action: 'logout' });

@@ -1,0 +1,4 @@
+# Seller ID documents and other private files: never served directly.
+# Admins open ID documents through admin_seller_file.php.
+Require all denied
+Options -Indexes

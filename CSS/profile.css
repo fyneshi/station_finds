@@ -1,0 +1,83 @@
+/* Public profile (profile.php). Colours come from css/cart.css (:root). */
+.profile-page { max-width: 1000px; margin: 0 auto; padding: 28px 20px 56px; display: flex; flex-direction: column; gap: 18px; }
+.pf-card { padding: 22px 24px; border: 1px solid var(--border-light); border-radius: 16px; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .04); }
+.pf-title { margin-bottom: 4px; font-size: 17px; font-weight: 800; color: var(--text-dark); }
+.pf-sub { font-size: 13px; color: var(--text-muted); }
+.pf-bio { margin-top: 10px; font-size: 14px; line-height: 1.6; color: var(--text-dark); overflow-wrap: anywhere; }
+.pf-empty { margin-top: 6px; font-size: 13.5px; color: var(--text-muted); }
+
+/* Header */
+.pf-head { display: flex; align-items: flex-start; gap: 22px; }
+.pf-avatar { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 104px; height: 104px; border-radius: 50%; overflow: hidden; background: var(--primary-yellow); color: var(--text-dark); font-size: 34px; font-weight: 800; }
+.pf-who { flex: 1; min-width: 0; }
+.pf-who h1 { font-size: 24px; font-weight: 800; letter-spacing: -.3px; color: var(--text-dark); overflow-wrap: anywhere; }
+.pf-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.pf-tag { padding: 3px 10px; border: 1px solid var(--border-light); border-radius: 999px; background: #fdf8ef; font-size: 12px; font-weight: 700; color: var(--text-dark); }
+.pf-tag.gold { border-color: var(--primary-yellow); background: #fff3cb; }
+.pf-actions { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+.pf-btn { display: inline-flex; align-items: center; justify-content: center; height: 38px; padding: 0 18px; border: 1.5px solid var(--primary-yellow); border-radius: 9px; background: var(--primary-yellow); color: var(--text-dark); font: inherit; font-size: 13.5px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.pf-btn:hover { background: var(--primary-yellow-hover); border-color: var(--primary-yellow-hover); }
+.pf-btn.outline { background: #fff; border-color: #e5dccd; }
+.pf-btn.outline:hover { border-color: var(--text-dark); }
+.pf-btn:disabled { opacity: .6; cursor: default; }
+.pf-btn:focus-visible, .pf-listing:focus-visible { outline: 2px solid var(--text-dark); outline-offset: 2px; }
+
+/* Report form */
+.pf-report { display: flex; flex-direction: column; gap: 6px; }
+.pf-report[hidden] { display: none; }
+.pf-report h2 { margin-bottom: 4px; font-size: 15px; font-weight: 800; }
+.pf-report label { font-size: 13px; font-weight: 600; }
+.pf-report select, .pf-report textarea { width: 100%; padding: 9px 11px; border: 1.5px solid #e5dccd; border-radius: 8px; background: #fff; font: inherit; font-size: 13.5px; color: var(--text-dark); }
+.pf-report textarea { min-height: 80px; resize: vertical; }
+.pf-report-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.pf-report-msg { font-size: 13px; font-weight: 600; }
+.pf-report-msg.ok { color: #047857; }
+.pf-report-msg.err { color: #b40013; }
+.pf-note { font-size: 12px; color: var(--text-muted); }
+
+/* Stats */
+.pf-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.pf-stat { display: flex; flex-direction: column; gap: 2px; padding: 16px 18px; }
+.pf-stat span { font-size: 12.5px; font-weight: 600; color: var(--text-muted); }
+.pf-stat strong { font-size: 22px; font-weight: 800; color: var(--text-dark); }
+.pf-stat small { font-size: 12px; color: var(--text-muted); }
+
+/* Listings */
+.pf-listings { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; margin-top: 12px; }
+.pf-listing { display: flex; flex-direction: column; gap: 4px; padding-bottom: 12px; border: 1px solid var(--border-light); border-radius: 12px; overflow: hidden; background: #fff; color: var(--text-dark); text-decoration: none; transition: box-shadow .15s, transform .15s; }
+.pf-listing:hover { box-shadow: 0 6px 16px rgba(0, 0, 0, .08); transform: translateY(-1px); }
+.pf-listing img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #f1ede4; }
+.pf-listing img.placeholder { object-fit: contain; padding: 24px; }
+.pf-listing > :not(img) { padding: 0 12px; }
+.pf-listing-type { margin-top: 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .4px; color: var(--text-muted); }
+.pf-listing strong { font-size: 14px; overflow-wrap: anywhere; }
+.pf-listing-price { font-size: 14px; font-weight: 800; }
+.pf-listing-price .price-unit { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+
+/* Reviews */
+.pf-review { padding: 14px 0; border-top: 1px solid var(--border-light); }
+.pf-review:first-of-type { margin-top: 8px; }
+.pf-review-top { display: flex; align-items: center; gap: 10px; }
+.pf-review-avatar { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; overflow: hidden; background: var(--primary-yellow); color: var(--text-dark); font-size: 12px; font-weight: 800; }
+.pf-review-who { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 14px; font-weight: 700; }
+.pf-review-who a { color: var(--text-dark); }
+.pf-review-who small { font-size: 12px; font-weight: 500; color: var(--text-muted); overflow-wrap: anywhere; }
+.pf-review-stars { color: #f59e0b; font-size: 15px; letter-spacing: 1px; white-space: nowrap; }
+.pf-review-stars span { color: #cbd5e1; }
+.pf-review p { margin-top: 8px; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+.pf-review-date { display: block; margin-top: 6px; font-size: 12px; color: var(--text-muted); }
+
+/* Not available */
+.pf-missing { text-align: center; padding: 48px 24px; }
+.pf-missing h1 { font-size: 22px; font-weight: 800; }
+.pf-missing p { margin: 6px 0 18px; color: var(--text-muted); }
+
+@media (max-width: 720px) {
+  .pf-head { flex-direction: column; align-items: center; text-align: center; }
+  .pf-tags { justify-content: center; }
+  .pf-actions { flex-direction: row; }
+  .pf-stats { grid-template-columns: 1fr; }
+}
+
+/* Online dot on the big profile picture */
+.pf-presence .online-dot { right: 6px; bottom: 6px; width: 20px; height: 20px; max-width: none; max-height: none; box-shadow: 0 0 0 3px #fff; }

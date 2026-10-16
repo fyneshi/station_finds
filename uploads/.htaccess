@@ -1,0 +1,12 @@
+# Listing photos uploaded by sellers. Only images are saved here (see seller.php),
+# but never run scripts from this folder just in case.
+<FilesMatch "\.(php\d?|phtml|phar|pl|py|cgi|sh|html?|svg)$">
+  Require all denied
+</FilesMatch>
+<IfModule mod_php.c>
+  php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+  php_flag engine off
+</IfModule>
+Options -Indexes

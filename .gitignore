@@ -1,0 +1,10 @@
+# Files people upload are data, not code: keep them out of Git
+# (the .htaccess files that protect these folders are kept)
+uploads/**
+!uploads/.htaccess
+!uploads/*/
+private/**
+!private/.htaccess
+
+# Editor settings
+.vscode/

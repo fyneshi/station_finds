@@ -1,0 +1,232 @@
+<?php
+session_start();
+if (isset($_SESSION['user_id'])) {
+    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
+        header('Location: admin_dashboard.php');
+    } else {
+        header('Location: home.php');
+    }
+    exit;
+}
+require_once 'db_setup.php';
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Authentication Flow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=5">
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- LEFT BRANDING PANEL -->
+    <div class="brand-panel">
+      <div class="bg-circle circle-1"></div>
+      <div class="bg-circle circle-2"></div>
+      <div class="bg-circle circle-3"></div>
+
+      <!-- Brand Logo -->
+       <div class="brand-logo-container">
+        <div class="brand-logo-badge">
+            <img src="assets/images/logo.png" alt="Station Finds Logo" class="brand-logo-img" />
+        </div>
+    </div>
+
+      <div class="brand-hero">
+        <h1>Buy, rent, and sell right in your neighborhood.</h1>
+        <p>Join thousands of neighbors already trading nearby.</p>
+
+        <div class="features-list">
+          <div class="feature-item">
+            <div class="feature-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <path d="M16 10a4 4 0 0 1-8 0"></path>
+              </svg>
+            </div>
+            <span class="feature-text">Buy and sell products</span>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="7.5" cy="15.5" r="5.5"></circle>
+                <path d="m21 2-9.6 9.6"></path>
+                <path d="m15.5 7.5 3 3L22 7l-3-3"></path>
+              </svg>
+            </div>
+            <span class="feature-text">Rent items nearby</span>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+              </svg>
+            </div>
+            <span class="feature-text">Book local services</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="brand-footer">
+        &copy; 2026 Station Finds Inc. All rights reserved.
+      </div>
+    </div>
+
+    <!-- RIGHT FORM PANEL -->
+    <div class="form-panel">
+      <div class="form-card">
+
+        <!-- Toast notification for success/error messages -->
+        <div id="toast" class="toast" style="display: none;"></div>
+
+        <!-- VIEW 0: WELCOME (LOGGED IN) -->
+        <?php if (isset($_SESSION['user_id'])): ?>
+        <div id="view-welcome" class="view-container active">
+          <h2 class="card-title">Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?>!</h2>
+          <p class="card-subtitle">You are logged in as <strong><?php echo htmlspecialchars($_SESSION['email']); ?></strong></p>
+          <button type="button" class="btn-primary" onclick="handleLogout()">Log out</button>
+        </div>
+        <?php endif; ?>
+
+        <button id="globalBackBtn" class="back-btn" style="display: none;" onclick="showView('auth'); setAuthMode('login');">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+          Back to log in
+        </button>
+
+        <!-- VIEW 1: AUTH (LOG IN & SIGN UP) -->
+        <div id="view-auth" class="view-container <?php echo isset($_SESSION['user_id']) ? '' : 'active'; ?>">
+          <h2 id="authHeading" class="card-title">Welcome back</h2>
+          <p id="authSubtitle" class="card-subtitle">Log in to continue to your account.</p>
+
+          <div class="tab-switcher">
+            <button id="tabLogin" class="tab-btn active" onclick="setAuthMode('login')">Log in</button>
+            <button id="tabSignup" class="tab-btn" onclick="setAuthMode('signup')">Sign up</button>
+          </div>
+
+          <form id="authForm" onsubmit="handleAuthSubmit(event)">
+            <div id="firstNameGroup" class="form-group" style="display: none;">
+              <label class="form-label">First name</label>
+              <input type="text" id="signupFirstName" class="form-input" placeholder="First Name" />
+            </div>
+
+            <div id="lastNameGroup" class="form-group" style="display: none;">
+              <label class="form-label">Last name</label>
+              <input type="text" id="signupLastName" class="form-input" placeholder="Last Name" />
+            </div>
+
+            <div id="usernameGroup" class="form-group" style="display: none;">
+              <label class="form-label">Username</label>
+              <input type="text" id="signupUsername" class="form-input" placeholder="Username" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input type="email" id="authEmail" class="form-input" placeholder="name@email.com" required />
+            </div>
+
+            <div class="form-group">
+              <div class="form-group-header">
+                <label class="form-label">Password</label>
+                <button type="button" id="forgotPasswordLink" class="link-forgot" onclick="showView('forgot')">Forgot password?</button>
+              </div>
+              <div class="input-wrapper">
+                <input type="password" id="authPassword" class="form-input" placeholder="Enter your password" required />
+                <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('authPassword', this)">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div id="confirmPasswordGroup" class="form-group" style="display: none;">
+              <label class="form-label">Confirm Password</label>
+              <div class="input-wrapper">
+                <input type="password" id="signupConfirmPassword" class="form-input" placeholder="Re-enter your password" />
+                <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('signupConfirmPassword', this)">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" id="authSubmitBtn" class="btn-primary">Log in</button>
+          </form>
+
+          <div class="card-footer-text">
+            <span id="footerPrompt">Don't have an account?</span><br>
+            <button type="button" id="footerActionBtn" class="link-action" onclick="toggleAuthMode()">Sign up</button>
+          </div>
+        </div>
+
+        <!-- VIEW 2: FORGOT PASSWORD -->
+        <div id="view-forgot" class="view-container">
+          <h2 class="card-title">Forgot password?</h2>
+          <p class="card-subtitle">
+            Enter the email linked to your account and a Station Finds admin will reset your password.
+          </p>
+
+          <form onsubmit="handleForgotSubmit(event)">
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input type="email" id="forgotEmail" class="form-input" placeholder="name@email.com" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="forgotContact">How can we reach you? <span style="font-weight: 500; color: #71717a;">(optional)</span></label>
+              <input type="text" id="forgotContact" class="form-input" maxlength="100" placeholder="e.g. 0917 123 4567 or your school email" />
+            </div>
+
+            <button type="submit" class="btn-primary">Request a reset</button>
+          </form>
+
+          <div class="card-footer-text">
+            Remembered your password?
+            <button type="button" class="link-action" onclick="showView('auth'); setAuthMode('login');">Log in</button>
+          </div>
+        </div>
+
+        <!-- VIEW 3: RESET REQUESTED -->
+        <div id="view-check-email" class="view-container text-center">
+          <div class="email-icon-badge">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+
+          <h2 class="card-title">Request sent</h2>
+          <p class="card-subtitle">
+            If <strong id="displaySentEmail" style="color: #111827;"></strong> has an account, a Station Finds admin
+            will reset its password and get a temporary one to you. Log in with it, then set your own under
+            <strong>Account › Login Credentials</strong>.
+          </p>
+
+          <button type="button" class="btn-primary" onclick="showView('auth'); setAuthMode('login');">Back to log in</button>
+
+          <div class="card-footer-text">
+            Need it sooner?
+            <a class="link-action" href="mailto:support@stationfinds.edu.ph">Contact support</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="js/script.js?v=4"></script>
+</body>
+</html>

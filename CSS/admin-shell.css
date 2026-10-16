@@ -1,0 +1,68 @@
+/* ==========================================================================
+   STATION FINDS — ADMIN SIDEBAR + TOP BAR (admin_layout.php)
+   Loaded by every admin page next to that page's own styles.
+   Classes start with "adm-" so they don't clash with cart.css / account.css.
+   ========================================================================== */
+
+.adm-shell { display: flex; min-height: 100vh; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
+/* ── Sidebar ── */
+.adm-sidebar {
+  width: 260px; flex: 0 0 260px; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  padding: 24px 14px; background: #18252d; color: #c8ced1; border-right: 1px solid #2f4049;
+}
+.adm-brand { display: flex; align-items: center; gap: 8px; padding: 0 10px 18px; color: #fff9f0; font-size: 16px; font-weight: 800; letter-spacing: -.3px; text-decoration: none; }
+.adm-brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 6px; background: #e9ba32; color: #18252d; font-size: 14px; font-weight: 800; }
+.adm-profile { display: flex; align-items: center; gap: 10px; padding: 10px; margin-bottom: 18px; border-radius: 10px; background: #27363f; }
+.adm-avatar { display: grid; place-items: center; width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; background: #e9ba32; color: #18252d; font-size: 13px; font-weight: 800; }
+.adm-profile-text { display: flex; flex-direction: column; min-width: 0; }
+.adm-profile-text strong { color: #fff9f0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm-profile-text span { color: #e9ba32; font-size: 12px; }
+.adm-menu-label { margin: 0 10px 10px; font-size: 11.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: #8fa2ae; }
+.adm-nav { display: flex; flex-direction: column; gap: 2px; }
+.adm-nav-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 9px;
+  color: #c8ced1; font-size: 14px; text-decoration: none; transition: background-color .15s;
+}
+.adm-nav-item svg { flex-shrink: 0; color: #7893a3; }
+a.adm-nav-item:hover { background: #27363f; color: #fff; }
+.adm-nav-item.active { background: #e9ba32; color: #14222a; font-weight: 700; }
+.adm-nav-item.active svg { color: inherit; }
+.adm-nav-item.disabled { color: #6f8290; cursor: default; }
+.adm-nav-item.disabled svg { color: #4d6270; }
+.adm-count, .adm-soon { margin-left: auto; font-style: normal; border-radius: 9px; }
+.adm-count { min-width: 20px; padding: 1px 6px; background: #e9ba32; color: #18252d; font-size: 12px; font-weight: 800; text-align: center; }
+.adm-nav-item.active .adm-count { background: #18252d; color: #e9ba32; }
+.adm-soon { padding: 1px 6px; border: 1px solid #3a4c57; color: #6f8290; font-size: 10.5px; }
+.adm-divider { border-top: 1px solid #27363f; margin: 10px 0 6px; }
+
+/* ── Top bar ── */
+.adm-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.adm-topbar { position: sticky; top: 0; z-index: 50; height: 70px; display: flex; align-items: center; gap: 20px; padding: 0 36px; background: #18252d; color: #fff9f0; }
+.adm-search { display: flex; align-items: center; gap: 8px; flex: 0 1 560px; padding: 10px 14px; border: 1px solid #5c7383; border-radius: 6px; background: #27363f; color: #8fa2ae; }
+.adm-search input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #fff9f0; font: inherit; font-size: 14px; }
+.adm-search input::placeholder { color: #a9b6bf; }
+.adm-search:focus-within { border-color: #e9ba32; }
+.adm-search-spacer { flex: 0 1 560px; }
+.adm-topbar-actions { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+.adm-bell { position: relative; display: grid; place-items: center; color: #fff9f0; }
+.adm-bell:hover { color: #e9ba32; }
+.adm-bell-dot { position: absolute; top: -2px; right: -3px; width: 8px; height: 8px; border-radius: 50%; background: #e9ba32; box-shadow: 0 0 0 2px #18252d; }
+.adm-menu-toggle { display: none; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: #fff9f0; cursor: pointer; }
+
+.adm-nav-item:focus-visible, .adm-bell:focus-visible, .adm-menu-toggle:focus-visible, .adm-brand:focus-visible { outline: 2px solid #e9ba32; outline-offset: 2px; }
+
+@media (max-width: 860px) {
+  .adm-shell { display: block; }
+  .adm-sidebar { display: none; position: fixed; top: 70px; left: 0; z-index: 100; height: calc(100dvh - 70px); box-shadow: 6px 0 20px rgba(0, 0, 0, .3); }
+  .adm-sidebar.is-open { display: block; }
+  .adm-menu-toggle { display: grid; }
+  .adm-topbar { padding: 0 14px; gap: 10px; }
+  .adm-search { flex: 1; }
+}
+
+/* Admin pages built on the shop styles (payouts, feedback, categories) use the full width too */
+.adm-main .shop-wrapper { max-width: none; margin: 0; padding: 32px 36px 48px; }
+@media (max-width: 860px) {
+  .adm-main .shop-wrapper { padding: 22px 16px 40px; }
+}

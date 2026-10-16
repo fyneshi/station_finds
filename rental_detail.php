@@ -1,0 +1,561 @@
+<?php
+session_start();
+
+// Redirect to login page if user is not authenticated
+if (!isset($_SESSION['user_id'])) {
+    header('Location: index.php');
+    exit;
+}
+
+// Admins only use the admin dashboard
+if (($_SESSION['role'] ?? '') === 'admin') {
+    header('Location: admin_dashboard.php');
+    exit;
+}
+
+require_once 'shop.php';
+require_once 'reports.php';
+require_once 'inbox.php';
+require_once 'comments.php';
+
+// Which rental to show: rental_detail.php?id=<listing id>
+// (unknown or missing id = back to the marketplace)
+$item = sf_get_item($_GET['id'] ?? '', 'rentals');
+if (!$item) {
+    header('Location: marketplace.php?tab=rentals');
+    exit;
+}
+
+$username = $_SESSION['username'] ?? 'User';
+$email    = $_SESSION['email'] ?? '';
+$initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
+
+$e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
+$photos = sf_gallery($item);
+$isPlaceholder = $item['image'] === SF_PLACEHOLDER_IMAGE;
+
+$userId    = (int) $_SESSION['user_id'];
+$listingId = (int) substr($item['id'], 8);
+$pageLink  = 'rental_detail.php?id=' . $item['id'];
+$isOwner   = $item['seller_id'] === $userId;
+
+// Questions & Comments: post a question or a reply (comments.php), then come back to the list
+[$commentError, $commentDraft] = sf_handle_comment_post($conn, $item, $userId, $pageLink);
+$comments  = sf_listing_comments($conn, $listingId);
+$reviews   = sf_listing_reviews($conn, $item['id']);
+$csrf      = sf_csrf_token();
+$condition = SF_CONDITIONS[$item['condition']] ?? '';
+$when      = fn($ts) => date('M j, Y', $ts);
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><?php echo $e($item['detail_title']); ?> — Station Finds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/detail.css?v=11" />
+</head>
+<body>
+
+  <!-- ==================== HEADER / NAVBAR ==================== -->
+  <header class="navbar">
+    <div class="nav-container">
+      <!-- Left: Logo & Navigation Links -->
+      <div class="nav-left">
+        <a href="home.php" class="nav-brand">
+          <img src="assets/images/logo2.png" alt="Station Finds" class="nav-logo-img" />
+          <span class="nav-brand-text">
+            <span class="brand-station">STATION</span>
+            <span class="brand-finds">FINDS</span>
+          </span>
+        </a>
+
+        <nav class="nav-links">
+          <a href="home.php" class="nav-link">Home</a>
+          <a href="marketplace.php" class="nav-link active">Marketplace</a>
+          <a href="messages.php" class="nav-link">Messages</a>
+          <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+          <a href="admin_dashboard.php" class="nav-link" style="color: #f7a827; font-weight: 700;">Admin Dashboard</a>
+          <?php endif; ?>
+        </nav>
+      </div>
+
+      <!-- Middle: Search Bar -->
+      <div class="nav-center">
+        <form action="search.php" method="GET" class="search-bar">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" name="q" class="search-input" placeholder="Search books, gadgets, dorm find, bike rentals, tutors..." />
+        </form>
+      </div>
+
+      <!-- Right: Action Icons & User Avatar -->
+      <div class="nav-right">
+        <a href="notifications.php" class="icon-btn" title="Notifications" aria-label="Notifications">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        </a>
+        <a href="favorites.php" class="icon-btn" title="Saved Items" aria-label="Saved Items">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>
+        </a>
+        <a href="cart.php" class="icon-btn cart-btn" title="Shopping Cart" aria-label="Shopping Cart">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
+          <span class="cart-badge" style="display: none;"></span>
+        </a>
+
+        <!-- User Profile Avatar & Dropdown -->
+        <div class="user-menu-wrapper">
+          <button type="button" class="user-avatar-btn" id="userMenuBtn" onclick="toggleUserDropdown()" aria-label="User profile">
+            <?php echo sf_nav_avatar_html(); ?>
+          </button>
+          <div class="user-dropdown" id="userDropdown">
+            <div class="user-dropdown-header">
+              <div class="dropdown-avatar"><?php echo sf_nav_avatar_html(); ?></div>
+              <div class="dropdown-user-details">
+                <span class="dropdown-username"><?php echo htmlspecialchars($username); ?></span>
+                <span class="dropdown-email"><?php echo htmlspecialchars($email); ?></span>
+              </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+            <a href="admin_dashboard.php" class="dropdown-item" style="color: #f7a827; font-weight: 700;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              Admin Dashboard
+            </a>
+            <?php endif; ?>
+            <a href="account.php?tab=profile" class="dropdown-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              My Profile
+            </a>
+            <a href="account.php?tab=seller" class="dropdown-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line></svg>
+              My Listings
+            </a>
+            <div class="dropdown-divider"></div>
+            <a href="logout.php" class="dropdown-item logout-link">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              Log out
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== BREADCRUMB ==================== -->
+  <div class="breadcrumb-container">
+    <nav class="breadcrumb-nav">
+      <a href="marketplace.php" class="breadcrumb-link">Marketplace</a>
+      <span class="breadcrumb-sep">&rsaquo;</span>
+      <a href="marketplace.php?tab=rentals" class="breadcrumb-link">Rentals</a>
+      <span class="breadcrumb-sep">&rsaquo;</span>
+      <span class="breadcrumb-current"><?php echo $e($item['title']); ?></span>
+    </nav>
+  </div>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <main class="detail-wrapper">
+    <div class="detail-grid">
+
+      <!-- LEFT COLUMN: PHOTOS, QUESTIONS, REVIEWS -->
+      <div class="detail-media-col">
+        <div class="detail-main-img-box">
+          <img id="mainDetailImg" src="<?php echo $e($photos[0]['main']); ?>" alt="<?php echo $e($item['detail_title']); ?>" class="detail-main-img"<?php echo $isPlaceholder ? ' style="object-fit: contain; padding: 40px;"' : ''; ?> />
+        </div>
+
+        <?php if (count($photos) > 1): ?>
+        <div class="detail-thumbnails-row">
+          <?php foreach ($photos as $i => $photo): ?>
+          <button type="button" class="detail-thumb-btn<?php echo $i === 0 ? ' active' : ''; ?>" onclick="switchMedia(this, '<?php echo $e($photo['main']); ?>')" aria-label="Show photo <?php echo $i + 1; ?>">
+            <img src="<?php echo $e($photo['thumb']); ?>" alt="" class="detail-thumb-img" />
+          </button>
+          <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- Comments & Suggestions (saved; comments.php) -->
+        <?php sf_render_comments($item, $comments, $pageLink, $csrf, $commentError, $commentDraft, ['Questions & Comments', 'Ask a question before booking…', 'No questions yet. Ask the owner anything before you book.']); ?>
+
+        <!-- Ratings & Reviews -->
+        <section class="comments-card reviews-card" aria-labelledby="reviewsTitle">
+          <h3 class="comments-title" id="reviewsTitle">Ratings &amp; Reviews</h3>
+          <div class="reviews-summary">
+            <span class="reviews-avg"><?php echo $reviews ? number_format(array_sum(array_column($reviews, 'rating')) / count($reviews), 1) : '–'; ?></span>
+            <span class="reviews-count"><?php echo count($reviews); ?> verified completed rental<?php echo count($reviews) === 1 ? '' : 's'; ?></span>
+          </div>
+          <p class="reviews-note">Reviews are tied to completed transactions and appear after the rental period ends.</p>
+
+          <?php foreach ($reviews as $rv): $who = $rv['name'] ?: 'Renter'; ?>
+          <article class="review-card">
+            <div class="comment-header">
+              <div class="comment-user">
+                <div class="comment-avatar small"><?php echo sf_avatar_html($who, $rv['avatar'] ?? ''); ?></div>
+                <?php if ($rv['user_id'] && $rv['avatar'] !== null): ?><a href="profile.php?id=<?php echo (int) $rv['user_id']; ?>" class="comment-author"><?php echo $e($who); ?></a><?php else: ?><span class="comment-author"><?php echo $e($who); ?></span><?php endif; ?>
+              </div>
+              <span class="comment-date"><?php echo $when($rv['ts']); ?><?php echo $rv['units'] ? ' · ' . (int) $rv['units'] . '-day rental' : ''; ?></span>
+            </div>
+            <?php if (trim((string) $rv['message']) !== ''): ?><p class="comment-text"><?php echo nl2br($e($rv['message'])); ?></p><?php endif; ?>
+            <p class="review-meta">Listing rating: <?php echo (int) $rv['rating']; ?> / 5 · Verified completed rental</p>
+          </article>
+          <?php endforeach; ?>
+          <p class="reviews-foot"><?php echo $reviews ? 'Rented this before?' : 'No reviews yet.'; ?> Review this listing and owner from a completed rental in your <a href="account.php">Buyer Dashboard</a>.</p>
+        </section>
+      </div>
+
+      <!-- RIGHT COLUMN: RENTAL INFO, BOOKING, OWNER, REPORTS -->
+      <div class="detail-info-col">
+        <div class="detail-badges">
+          <span class="badge-gold">RENTAL</span>
+          <span class="badge-subtle">AVAILABLE NOW</span>
+        </div>
+
+        <h1 class="detail-title"><?php echo $e($item['detail_title']); ?></h1>
+        <div class="detail-price-main"><?php echo sf_price_html($item); ?></div>
+
+        <!-- Rental specifications -->
+        <div class="detail-section">
+          <h4 class="detail-section-heading">Rental specifications</h4>
+          <div class="specs-grid-2x2">
+            <div class="spec-prop"><span class="spec-label">Category:</span> <span class="spec-value"><?php echo $e($item['details']['Category'] ?? 'Other'); ?></span></div>
+            <div class="spec-prop"><span class="spec-label">Condition:</span> <span class="spec-value"><?php echo $e($condition ?: '—'); ?></span></div>
+            <div class="spec-prop"><span class="spec-label">Location:</span> <span class="spec-value"><?php echo $e($item['location'] ?: 'Ask the owner'); ?></span></div>
+            <div class="spec-prop"><span class="spec-label">Rent for:</span> <span class="spec-value"><?php echo (int) min($item['units']) . '–' . (int) max($item['units']); ?> days</span></div>
+          </div>
+          <?php if ($item['description'] !== ''): ?>
+          <p class="detail-description"><?php echo nl2br($e($item['description'])); ?></p>
+          <?php endif; ?>
+        </div>
+
+        <!-- Duration & dates -->
+        <div class="detail-section">
+          <h4 class="detail-section-heading small">Select duration &amp; dates</h4>
+          <div class="booking-row">
+            <select id="pageDays" class="booking-control" aria-label="Rental duration">
+              <?php foreach ($item['units'] as $days): ?>
+              <option value="<?php echo (int) $days; ?>"<?php echo (int) $days === (int) $item['default_units'] ? ' selected' : ''; ?>><?php echo (int) $days . ($days == 1 ? ' Day' : ' Days'); ?></option>
+              <?php endforeach; ?>
+            </select>
+            <label class="booking-control booking-dates">
+              <span id="pageRange"></span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              <input type="date" id="pageStart" min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+60 days')); ?>" value="<?php echo date('Y-m-d', strtotime('+1 day')); ?>" aria-label="Start date" />
+            </label>
+          </div>
+          <p class="booking-total">Estimated total: <strong id="rentalTotal"></strong></p>
+        </div>
+
+        <?php if ($isOwner): ?>
+        <a href="listing_form.php?id=<?php echo $listingId; ?>" class="btn-primary-full as-link">This is your listing · Edit it</a>
+        <?php else: ?>
+        <button type="button" class="btn-primary-full" id="buyNowBtn" onclick="openRentalRequest()">Request rental</button>
+        <a href="<?php echo $item['seller_id'] ? 'messages.php?with=' . $item['seller_id'] : 'messages.php'; ?>" class="detail-message-link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          Message owner about terms &amp; deposit
+        </a>
+
+        <!-- Report listing -->
+        <form class="report-card" data-report-type="listing" data-report-id="<?php echo $listingId; ?>" novalidate>
+          <div class="report-card-head"><h4>Report Listing</h4><span>Listing content</span></div>
+          <label for="reportListingReason">Reason</label>
+          <select id="reportListingReason" name="reason" required>
+            <option value="">Choose a reason…</option>
+            <?php foreach (SF_REPORT_REASONS['listing'] as $reason): ?><option><?php echo $e($reason); ?></option><?php endforeach; ?>
+          </select>
+          <label for="reportListingDetails">Details</label>
+          <textarea id="reportListingDetails" name="details" maxlength="1000" placeholder="Add context about the listing, photos, or communication…"></textarea>
+          <div class="report-card-foot"><span>Open → Escalated / Resolved</span><button type="submit">Submit</button></div>
+          <p class="report-card-msg" role="status"></p>
+          <p class="report-card-note">Content Moderation notice: Reports are reviewed by admins and may result in listing removal or account action.</p>
+        </form>
+        <?php endif; ?>
+
+        <!-- Owner information -->
+        <div class="detail-section">
+          <h4 class="detail-section-heading">Owner information</h4>
+          <div class="seller-card">
+            <div class="seller-left">
+              <div class="presence"><div class="seller-avatar avatar-mj"><?php echo sf_avatar_html($item['seller'], $item['seller_avatar']); ?></div><?php echo sf_online_dot($item['seller_presence']); ?></div>
+              <div class="seller-info">
+                <h5 class="seller-name"><?php if ($item['seller_id']): ?><a href="profile.php?id=<?php echo (int) $item['seller_id']; ?>" class="seller-profile-link"><?php echo $e($item['seller']); ?></a><?php else: ?><?php echo $e($item['seller']); ?><?php endif; ?></h5>
+                <span class="seller-meta"><?php echo $e($item['seller_meta']); ?></span>
+                <?php $active = sf_active_text($item['seller_presence']); if ($active !== ''): ?><span class="seller-active<?php echo $active === 'Active now' ? ' active-now' : ''; ?>"><?php echo $active; ?></span><?php endif; ?>
+              </div>
+            </div>
+            <?php if ($item['seller_rating'] > 0): ?>
+            <div class="seller-rating">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="1" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              <span><?php echo number_format($item['seller_rating'], 1); ?></span>
+            </div>
+            <?php endif; ?>
+          </div>
+        </div>
+
+        <?php if (!$isOwner && $item['seller_id']): ?>
+        <!-- Report user -->
+        <form class="report-card" data-report-type="user" data-report-id="<?php echo (int) $item['seller_id']; ?>" novalidate>
+          <div class="report-card-head"><h4>Report User</h4><span>Owner conduct</span></div>
+          <label for="reportUserReason">Reason</label>
+          <select id="reportUserReason" name="reason" required>
+            <option value="">Choose a reason…</option>
+            <?php foreach (SF_REPORT_REASONS['user'] as $reason): ?><option><?php echo $e($reason); ?></option><?php endforeach; ?>
+          </select>
+          <label for="reportUserDetails">Details</label>
+          <textarea id="reportUserDetails" name="details" maxlength="1000" placeholder="Describe the issue and include any relevant messages or dates…"></textarea>
+          <div class="report-card-foot"><span>Open → Escalated / Resolved</span><button type="submit">Submit</button></div>
+          <p class="report-card-msg" role="status"></p>
+          <p class="report-card-note">Content Moderation notice: Reports are reviewed by admins and may result in listing removal or account action.</p>
+        </form>
+        <?php endif; ?>
+      </div>
+    </div>
+  </main>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-top">
+        <div class="footer-brand-col">
+          <div class="footer-emblem-badge">
+            <img src="assets/images/logo2.png" alt="Station Finds Emblem" class="footer-emblem-img" />
+          </div>
+        </div>
+        <div class="footer-col">
+          <h4 class="footer-heading"><a href="about.php" class="footer-heading-link">ABOUT US</a></h4>
+          <ul class="footer-links-list">
+            <li><a href="about.php#get-to-know-us" class="footer-link">Get to know us</a></li>
+            <li><a href="about.php#our-commitment" class="footer-link">Our commitment</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4 class="footer-heading"><a href="contact.php" class="footer-heading-link">CONTACT US</a></h4>
+          <ul class="footer-links-list">
+            <li class="footer-text-item">Katipunan Ave, Quezon City, PH</li>
+            <li><a href="mailto:support@stationfinds.edu.ph" class="footer-link">support@stationfinds.edu.ph</a></li>
+            <li class="footer-text-item">+63 (2) 8123&ndash;4567</li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4 class="footer-heading"><a href="policies.php" class="footer-heading-link">POLICIES</a></h4>
+          <ul class="footer-links-list">
+            <li><a href="policies.php?page=privacy" class="footer-link">Privacy policy</a></li>
+            <li><a href="policies.php?page=terms" class="footer-link">Terms of service</a></li>
+            <li><a href="policies.php?page=refund" class="footer-link">Refund policy</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-divider"></div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 STATIONFINDS. Developed for student safety, affordability, and convenience.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==================== REQUEST RENTAL MODAL ==================== -->
+  <dialog class="rent-modal" id="rentModal" aria-labelledby="rentTitle">
+    <form id="rentForm" novalidate>
+      <div class="rent-modal-head">
+        <h2 id="rentTitle">Request Rental</h2>
+        <button type="button" class="rent-close" onclick="closeRentalRequest()" aria-label="Close">&times;</button>
+      </div>
+      <label class="rent-label" for="rentItem">Item</label>
+      <input type="text" id="rentItem" class="rent-input" value="<?php echo $e($item['title']); ?>" readonly />
+
+      <label class="rent-label" for="rentDays">Duration</label>
+      <select id="rentDays" class="rent-input">
+        <?php foreach ($item['units'] as $days): ?>
+        <option value="<?php echo (int) $days; ?>"<?php echo (int) $days === (int) $item['default_units'] ? ' selected' : ''; ?>><?php echo (int) $days . ($days == 1 ? ' Day' : ' Days'); ?></option>
+        <?php endforeach; ?>
+      </select>
+
+      <div class="rent-grid">
+        <div>
+          <label class="rent-label" for="rentStart">Start date</label>
+          <input type="date" id="rentStart" class="rent-input" min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+60 days')); ?>" value="<?php echo date('Y-m-d', strtotime('+1 day')); ?>" required />
+        </div>
+        <div>
+          <label class="rent-label" for="rentEnd">End date</label>
+          <input type="date" id="rentEnd" class="rent-input" readonly tabindex="-1" aria-describedby="rentEndHint" />
+        </div>
+      </div>
+      <p class="rent-hint" id="rentEndHint">The end date follows from the start date and duration.</p>
+
+      <span class="rent-label" id="rentOptionLabel">Pickup / Delivery Option</span>
+      <div class="rent-options" role="radiogroup" aria-labelledby="rentOptionLabel">
+        <label><input type="radio" name="rentOption" value="Pickup on campus" checked /> Pickup on campus</label>
+        <label><input type="radio" name="rentOption" value="Delivery" /> Delivery</label>
+      </div>
+
+      <label class="rent-label" for="rentMessage">Message for owner</label>
+      <textarea id="rentMessage" class="rent-input" rows="3" maxlength="500" placeholder="Add a message for the owner…"></textarea>
+
+      <div class="rent-summary">
+        <div><span>Rate details:</span><strong id="rentRate"></strong></div>
+        <div class="total"><span>Estimated Total:</span><strong id="rentTotal"></strong></div>
+      </div>
+      <p class="rent-error" id="rentError" role="alert" hidden></p>
+
+      <div class="rent-actions">
+        <button type="button" class="rent-cancel" onclick="closeRentalRequest()">Cancel</button>
+        <button type="submit" class="rent-submit" id="rentSubmit">Submit Request</button>
+      </div>
+      <p class="rent-hint center">Your request is sent to the owner in Messages, and the rental goes to checkout for payment.</p>
+    </form>
+  </dialog>
+
+  <script src="js/cart.js?v=2"></script>
+  <script src="js/inbox.js?v=2"></script>
+  <script>
+    const ITEM_ID = <?php echo json_encode($item['id']); ?>;
+    const DAILY_RATE = <?php echo json_encode($item['price']); ?>;
+    const DAY_OPTIONS = <?php echo json_encode(array_values($item['units'])); ?>;   // allowed rental lengths
+
+    // Thumbnail switcher
+    function switchMedia(btn, src) {
+      document.querySelectorAll('.detail-thumb-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const mainImg = document.getElementById('mainDetailImg');
+      if (mainImg) mainImg.src = src;
+    }
+
+    // Duration & dates on the page: the range, the estimate, and what the modal starts from
+    const pageDays  = document.getElementById('pageDays');
+    const pageStart = document.getElementById('pageStart');
+    const addDays = (iso, n) => {
+      const d = new Date(iso + 'T00:00:00');
+      d.setDate(d.getDate() + n);
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    };
+    const shortDate = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    function updatePageBooking() {
+      const days = Number(pageDays.value);
+      if (pageStart.value) document.getElementById('pageRange').textContent = shortDate(pageStart.value) + ' – ' + shortDate(addDays(pageStart.value, days));
+      document.getElementById('rentalTotal').textContent = '₱' + (DAILY_RATE * days).toLocaleString('en-US');
+    }
+    pageDays.addEventListener('change', updatePageBooking);
+    pageStart.addEventListener('change', updatePageBooking);
+    // The whole date box opens the calendar
+    pageStart.closest('label').addEventListener('click', e => {
+      if (e.target !== pageStart && pageStart.showPicker) { e.preventDefault(); try { pageStart.showPicker(); } catch (_) { pageStart.focus(); } }
+    });
+    updatePageBooking();
+
+    // ── Request Rental modal ────────────────────────────────────
+    // Submitting adds the rental to the cart for the chosen days, sends the owner the
+    // details in Messages, then goes to checkout to pay.
+    const SELLER_ID = <?php echo (int) $item['seller_id']; ?>;
+    const ITEM_TITLE = <?php echo json_encode($item['title'], JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+    const rentModal = document.getElementById('rentModal');
+    const peso = n => '₱' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
+    const longDate = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    function updateRentalRequest() {
+      const days = Number(document.getElementById('rentDays').value);
+      const start = document.getElementById('rentStart').value;
+      if (start) {
+        const end = new Date(start + 'T00:00:00');
+        end.setDate(end.getDate() + days);
+        document.getElementById('rentEnd').value = end.getFullYear() + '-' + String(end.getMonth() + 1).padStart(2, '0') + '-' + String(end.getDate()).padStart(2, '0');
+      }
+      document.getElementById('rentRate').textContent = peso(DAILY_RATE) + ' / day × ' + days + (days === 1 ? ' day' : ' days');
+      document.getElementById('rentTotal').textContent = peso(DAILY_RATE * days);
+    }
+    function openRentalRequest() {
+      // Start from the duration and dates picked on the page
+      document.getElementById('rentDays').value = pageDays.value;
+      if (pageStart.value) document.getElementById('rentStart').value = pageStart.value;
+      document.getElementById('rentError').hidden = true;
+      updateRentalRequest();
+      rentModal.showModal();
+    }
+    function closeRentalRequest() { rentModal.close(); }
+    rentModal.addEventListener('click', e => { if (e.target === rentModal) rentModal.close(); });
+    document.getElementById('rentDays').addEventListener('change', updateRentalRequest);
+    document.getElementById('rentStart').addEventListener('change', updateRentalRequest);
+
+    document.getElementById('rentForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const error = document.getElementById('rentError');
+      const start = document.getElementById('rentStart');
+      if (!start.value || start.value < start.min || start.value > start.max) {
+        error.textContent = 'Choose a start date between today and ' + longDate(start.max) + '.';
+        error.hidden = false;
+        start.focus();
+        return;
+      }
+      const days = Number(document.getElementById('rentDays').value);
+      const option = document.querySelector('input[name="rentOption"]:checked').value;
+      const note = document.getElementById('rentMessage').value.trim();
+      const btn = document.getElementById('rentSubmit');
+      btn.disabled = true;
+      try {
+        await SFCart.add(ITEM_ID, 1, days);
+        const text = 'Rental request: ' + ITEM_TITLE + '\n'
+          + 'Dates: ' + longDate(start.value) + ' to ' + longDate(document.getElementById('rentEnd').value) + ' (' + days + (days === 1 ? ' day' : ' days') + ')\n'
+          + option + ' · Estimated total ' + peso(DAILY_RATE * days)
+          + (note ? '\nMessage: ' + note : '');
+        const res = await fetch('inbox_handler.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'send', to: SELLER_ID, text })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Your message could not be sent.');
+        window.location.href = 'checkout.php';
+      } catch (err) {
+        // SFCart already showed why the rental couldn't be added; show message errors here
+        if (err && err.message) { error.textContent = err.message; error.hidden = false; }
+        btn.disabled = false;
+      }
+    });
+
+    // Report Listing / Report User: sent to the admins' Content Moderation
+    document.querySelectorAll('.report-card').forEach(form => form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const msg = form.querySelector('.report-card-msg');
+      const reason = form.elements.reason;
+      const show = (text, ok) => { msg.textContent = text; msg.className = 'report-card-msg ' + (ok ? 'ok' : 'err'); };
+      if (!reason.value) { show('Choose a reason first.', false); reason.focus(); return; }
+      const btn = form.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        const res = await fetch('report_handler.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'report', type: form.dataset.reportType, id: Number(form.dataset.reportId),
+                                 reason: reason.value, details: form.elements.details.value.trim() })
+        });
+        const data = await res.json();
+        show(data.message || (data.success ? 'Thanks, your report was sent.' : 'Your report could not be sent.'), !!data.success);
+        if (data.success) form.reset();
+      } catch (err) {
+        show('Your report could not be sent. Please try again.', false);
+      }
+      btn.disabled = false;
+    }));
+
+    // User dropdown toggle
+    function toggleUserDropdown() {
+      document.getElementById('userDropdown').classList.toggle('show');
+    }
+    document.addEventListener('click', function(e) {
+      const wrapper = document.querySelector('.user-menu-wrapper');
+      if (wrapper && !wrapper.contains(e.target)) {
+        document.getElementById('userDropdown').classList.remove('show');
+      }
+    });
+  </script>
+</body>
+</html>

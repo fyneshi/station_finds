@@ -56,7 +56,9 @@
     if (!r.success) {
       const msg = r.message || 'Could not add this item to your cart.';
       if (r.message !== 'Please log in first.') toast(msg, true);
-      throw new Error(msg);
+      const err = new Error(msg);
+      err.data = r;   // e.g. r.stock when there isn't enough left
+      throw err;
     }
     setBadge(r.count);
     return r;
@@ -114,7 +116,28 @@
     document.head.appendChild(style);
   }
 
-  window.SFCart = { add: add, post: post, setBadge: setBadge, toast: toast };
+  // "Buy now": check out just this item (the cart is left alone); shows an error toast and throws if it can't
+  async function buyNow(id, qty, units) {
+    const payload = { action: 'buy_now', id: String(id), qty: qty || 1 };
+    if (units !== undefined && units !== null) payload.units = units;
+    let r;
+    try {
+      r = await post(payload);
+    } catch (e) {
+      toast(e.message, true);
+      throw e;
+    }
+    if (!r.success) {
+      const msg = r.message || 'Could not start checkout for this item.';
+      if (r.message !== 'Please log in first.') toast(msg, true);
+      const err = new Error(msg);
+      err.data = r;   // e.g. r.stock when there isn't enough left
+      throw err;
+    }
+    return r;
+  }
+
+  window.SFCart = { add: add, buyNow: buyNow, post: post, setBadge: setBadge, toast: toast };
 
   // Show the right count in the navbar badge on page load
   function init() {

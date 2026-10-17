@@ -1171,3 +1171,26 @@ body {
 .sort-dropdown .sort-select { appearance: none; -webkit-appearance: none; margin: 0 -14px 0 0; padding: 0 22px 0 0; border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer; outline: none; }
 .sort-dropdown svg { position: absolute; right: 12px; pointer-events: none; }
 .sort-dropdown:focus-within { border-color: #d4a843; box-shadow: 0 0 0 3px rgba(212, 168, 67, .2); }
+
+/* ── Filters as a dropdown under the Filters button (not a centred pop-up) ──
+   The see-through layer only catches clicks outside, to close it. */
+.filter-modal-backdrop { display: block; visibility: hidden; padding: 0; background: transparent; backdrop-filter: none; opacity: 0; transition: opacity .15s ease, visibility 0s linear .15s; }
+.filter-modal-backdrop.show { display: block; visibility: visible; opacity: 1; transition: opacity .15s ease; }
+.filter-modal-backdrop .filter-modal-dialog {
+  position: fixed; top: 0; right: 16px; width: min(380px, calc(100vw - 24px)); max-width: none;
+  max-height: calc(100vh - 32px); overflow-y: auto; overscroll-behavior: contain;
+  border-radius: 14px; box-shadow: 0 16px 40px rgba(24, 35, 42, .18);
+  transform-origin: top right; transform: translateY(-6px) scale(.98); transition: transform .18s cubic-bezier(.2, .8, .2, 1);
+}
+.filter-modal-backdrop.show .filter-modal-dialog { transform: none; }
+.filter-modal-backdrop .filter-modal-dialog.filter-panel { width: min(300px, calc(100vw - 24px)); }
+.filter-modal-backdrop .filter-modal-dialog.rental-filter { width: min(400px, calc(100vw - 24px)); }
+.filter-btn[aria-expanded="true"] { border-color: #d4a843; background: #fff8e6; }
+@media (prefers-reduced-motion: reduce) {
+  .filter-modal-backdrop, .filter-modal-backdrop .filter-modal-dialog { transition: none; }
+}
+
+/* Stock (products) */
+.badge-stock-in  { background-color: #ecfdf5; color: #047857; }
+.badge-stock-low { background-color: #fffbeb; color: #b45309; }
+.badge-stock-out { background-color: #fef2f2; color: #b91c1c; }

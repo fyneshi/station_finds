@@ -1,7 +1,7 @@
 <?php
 /**
  * Shared sidebar + top bar for the admin pages (admin_dashboard.php, admin_users.php, admin_listings.php, admin_sellers.php, admin_moderation.php, admin_transactions.php, admin_reports.php,
- * admin_payouts.php, admin_categories.php, admin_feedback.php, admin_logs.php, admin_notifications.php). Styles: CSS/admin-shell.css.
+ * admin_payouts.php, admin_categories.php, admin_promos.php, admin_feedback.php, admin_logs.php, admin_notifications.php). Styles: CSS/admin-shell.css.
  * Needs db_setup.php included first ($conn).
  *
  *   sf_admin_shell_start('users', 'Search users…');   // after <body>
@@ -10,6 +10,18 @@
  *
  * Pages with a search box handle typing by defining  window.onAdminSearch = q => { ... }.
  */
+
+// Revenue as a SQL expression: order totals minus items the buyer cancelled or an admin refunded;
+// an order where every item was cancelled or refunded counts as nothing (shipping and tax included).
+// $where filters the orders, written with o.created_at etc., e.g. "o.created_at >= '2026-10-01'".
+function sf_net_sales_sql($where = '1 = 1') {
+    return "(SELECT COALESCE(SUM(o.total - COALESCE(c.closed, 0)), 0)
+             FROM orders o
+             LEFT JOIN (SELECT order_id, SUM(line_total) AS closed, COUNT(*) AS n FROM order_items
+                        WHERE fulfillment IN ('cancelled', 'refunded') GROUP BY order_id) c ON c.order_id = o.id
+             LEFT JOIN (SELECT order_id, COUNT(*) AS n FROM order_items GROUP BY order_id) a ON a.order_id = o.id
+             WHERE (c.n IS NULL OR c.n < a.n) AND ($where))";
+}
 
 // Things waiting for an admin (shown as counts in the sidebar and on the bell)
 function sf_admin_counts($conn) {
@@ -36,6 +48,7 @@ const SF_ADMIN_AREAS = [
     'transactions' => 'Transactions',
     'payouts'      => 'Payouts',
     'categories'   => 'Categories',
+    'promos'       => 'Promo codes',
     'reports'      => 'Reports',
     'activity'     => 'Audit logs',
 ];
@@ -82,6 +95,7 @@ const SF_NOTICE_PREFS = [
     'seller'      => ['New seller applications', 1],
     'reports'     => ['Flagged listings and reports', 1],
     'disputes'    => ['Disputed transactions', 1],
+    'cancelled'   => ['Cancelled orders', 1],
     'payouts'     => ['Payout requests', 1],
     'payouts_big' => ['Only payout requests over ₱10,000', 0],
     'users'       => ['New users and Contact Us messages', 1],
@@ -106,6 +120,7 @@ const SF_LOG_KINDS = [
     'dispute'  => 'Transactions',
     'payout'   => 'Payouts',
     'category' => 'Categories',
+    'promo'    => 'Promo codes',
     'export'   => 'Reports',
 ];
 function sf_admin_log($conn, $kind, $action, $target = '', $badge = '', $critical = false) {
@@ -185,6 +200,18 @@ function sf_admin_events($conn, $adminId) {
              $open ? 'Dispute' : 'Settled', $open ? 'flagged' : 'done', (int) $r['ts'], $open ? 'Resolve' : null, 'admin_transactions.php?tab=disputed');
     }
 
+    // Items buyers cancelled before the seller started (for reports; nothing to do)
+    $res = $conn->query("SELECT oi.id, oi.title, oi.cancel_reason, oi.line_total, UNIX_TIMESTAMP(oi.cancelled_at) AS ts, o.order_no,
+                                COALESCE(NULLIF(u.full_name, ''), u.username) AS buyer
+                         FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN users u ON u.id = o.user_id
+                         WHERE oi.fulfillment = 'cancelled' AND oi.cancelled_at >= $since");
+    while ($r = $res->fetch_assoc()) {
+        $add('cancel-' . $r['id'], 'cancelled', 'transactions', 'Order cancelled',
+             $r['buyer'] . ' cancelled ' . $r['title'] . ' (' . sf_peso($r['line_total']) . ', order ' . $r['order_no'] . ')' . ($r['cancel_reason'] !== '' ? ': ' . $r['cancel_reason'] : ''),
+             'Cancelled', 'muted', (int) $r['ts'], null, 'admin_transactions.php?tab=all');
+        $events[count($events) - 1]['pref'] = 'cancelled';   // its own switch in Settings
+    }
+
     // Listings a seller fixed after they were flagged
     $res = $conn->query("SELECT id, title, UNIX_TIMESTAMP(updated_at) AS ts FROM listings WHERE status = 'pending' AND updated_at >= $since");
     while ($r = $res->fetch_assoc()) {
@@ -213,7 +240,7 @@ function sf_admin_events($conn, $adminId) {
                'payouts' => 'payouts', 'feedback' => 'users', 'users' => 'users'];
     $events = array_filter($events, function ($ev) use ($conn, $areaOf, $prefOf, $prefs) {
         $area = $areaOf[strtok($ev['go'], '.')];
-        return sf_admin_can($conn, $area) && $prefs[$prefOf[$area]];
+        return sf_admin_can($conn, $area) && $prefs[$ev['pref'] ?? $prefOf[$area]];
     });
     usort($events, fn($a, $b) => $b['ts'] <=> $a['ts']);
     $events = array_slice($events, 0, 100);
@@ -246,6 +273,7 @@ function sf_admin_menu() {
         'transactions'  => ['Transaction Management', 'admin_transactions.php', '<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>'],
         'payouts'       => ['Payout Oversight', 'admin_payouts.php', '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'],
         'categories'    => ['Category Management', 'admin_categories.php', '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>'],
+        'promos'        => ['Promo Codes', 'admin_promos.php', '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>'],
         'reports'       => ['Reports', 'admin_reports.php', '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'],
         'activity'      => ['Activity / Audit Logs', 'admin_logs.php', '<path d="M2 12h5l3-9 4 18 3-9h5"/>'],
         'notifications' => ['Notifications', 'admin_notifications.php', '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'],

@@ -65,6 +65,7 @@ foreach (sf_catalog() as $id => $listing) {
         'rating'        => $listing['rating'],
         'badge_type'    => $badgeTypes[$listing['type']],
         'badge_sub'     => mb_strtoupper($listing['term']),
+        'stock'         => sf_stock_status($listing),   // [class, label] for products, null otherwise
         'image'         => $listing['image'],
         'link'          => $listing['link'],
         'score'         => $score,
@@ -87,7 +88,7 @@ $services_count = count(array_filter($items, fn($i) => $i['type'] === 'services'
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/search.css?v=2" />
+  <link rel="stylesheet" href="css/search.css?v=3" />
 </head>
 <body>
 
@@ -260,6 +261,7 @@ $services_count = count(array_filter($items, fn($i) => $i['type'] === 'services'
               <span class="badge-service"><?php echo $item['badge_type']; ?></span>
             <?php endif; ?>
             <span class="badge-subtle"><?php echo $item['badge_sub']; ?></span>
+            <?php if ($item['stock']): ?><span class="badge-stock-<?php echo $item['stock'][0]; ?>"><?php echo htmlspecialchars(mb_strtoupper($item['stock'][1])); ?></span><?php endif; ?>
           </div>
 
           <h3 class="card-title"><?php echo htmlspecialchars($item['title']); ?></h3>
@@ -327,7 +329,7 @@ $services_count = count(array_filter($items, fn($i) => $i['type'] === 'services'
 
   <!-- Favorite hearts (saved to the database, shared with Home / Marketplace / Favorites) -->
   <script src="js/favorites.js?v=2"></script>
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
   <script>
     let currentFilter = 'all';

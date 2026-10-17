@@ -648,3 +648,11 @@ body {
 /* Footer "CONTACT US" heading links to contact.php */
 .footer-heading-link { color: inherit; text-decoration: none; }
 .footer-heading-link:hover { color: #d4a843; }
+
+/* Stock (products) */
+.badge-stock-in, .badge-stock-low, .badge-stock-out {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 5px; text-transform: uppercase;
+}
+.badge-stock-in  { background-color: #ecfdf5; color: #047857; }
+.badge-stock-low { background-color: #fffbeb; color: #b45309; }
+.badge-stock-out { background-color: #fef2f2; color: #b91c1c; }

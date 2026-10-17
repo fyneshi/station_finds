@@ -177,9 +177,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         back_to('preferences', 'ok', 'Your preferences were saved.');
 
-    } elseif ($seller && in_array($action, ['listing_status', 'listing_delete'], true)) {
+    } elseif ($seller && in_array($action, ['listing_status', 'listing_delete', 'listing_stock'], true)) {
         $listing = sf_my_listing($conn, $userId, (int) ($_POST['id'] ?? 0));
         if (!$listing) back_to('seller', 'err', 'That listing could not be found.');
+
+        // Quick stock update from the Your Listings panel (products only)
+        if ($action === 'listing_stock') {
+            if ($listing['type'] !== 'products') back_to('seller', 'err', 'Only products have a stock count.');
+            $raw = trim((string) ($_POST['stock'] ?? ''));
+            if (!ctype_digit($raw) || (int) $raw > SF_MAX_STOCK) {
+                back_to('seller', 'err', 'Enter a stock from 0 to ' . number_format(SF_MAX_STOCK) . ' for "' . $listing['title'] . '".');
+            }
+            $stock = (int) $raw;
+            $stmt = $conn->prepare("UPDATE listings SET stock = ? WHERE id = ? AND seller_id = ? AND type = 'products'");
+            $stmt->bind_param("iii", $stock, $listing['id'], $userId);
+            $stmt->execute();
+            $stmt->close();
+            back_to('seller', 'ok', '"' . $listing['title'] . '" now has ' . $stock . ' in stock' . ($stock === 0 ? ' and shows as Out of stock.' : '.'));
+        }
 
         if ($action === 'listing_status') {
             if ($listing['status'] === 'pending') back_to('seller', 'err', '"' . $listing['title'] . '" is already waiting for an admin to review it.');
@@ -240,6 +255,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($next === null) back_to('seller', 'err', 'That order could not be updated. Please refresh and try again.');
         back_to('seller', 'ok', 'Order updated. The buyer has been notified.');
 
+    } elseif ($action === 'cancel_item') {
+        $error = sf_cancel_order_item($conn, $userId, (int) ($_POST['item'] ?? 0), (string) ($_POST['reason'] ?? ''));
+        back_to('buyer', $error ? 'err' : 'ok', $error ?: 'Cancelled. The seller has been told.');
+
     } elseif ($action === 'open_dispute') {
         $error = sf_open_dispute($conn, $userId, (int) ($_POST['item'] ?? 0), (string) ($_POST['reason'] ?? ''), (string) ($_POST['details'] ?? ''));
         back_to('buyer', $error ? 'err' : 'ok', $error ?: 'Your report was sent. An admin will review it and get back to you through your notifications.');
@@ -278,13 +297,14 @@ if ($tab === 'seller' || $tab === 'payouts') {
     $earned = $available = 0;
     $toFulfill = 0;
     foreach ($sales as $s) {
-        if ($s['fulfillment'] === 'refunded') continue;   // refunded after a dispute: not a sale
+        if (sf_item_closed($s['fulfillment'])) continue;   // refunded after a dispute, or cancelled by the buyer: not a sale
         $earned += $s['line_total'];
         if (sf_fulfillment_is_final($s['item_type'], $s['fulfillment'])) $available += $s['line_total'];
         else $toFulfill++;
     }
     // Open orders first, then finished ones
-    usort($sales, fn($a, $b) => sf_fulfillment_is_final($a['item_type'], $a['fulfillment']) <=> sf_fulfillment_is_final($b['item_type'], $b['fulfillment']));
+    $finished = fn($s) => sf_item_closed($s['fulfillment']) || sf_fulfillment_is_final($s['item_type'], $s['fulfillment']);
+    usort($sales, fn($a, $b) => $finished($a) <=> $finished($b));
 }
 if ($tab === 'payouts') {
     $balance        = sf_payout_balance($conn, $userId);
@@ -315,8 +335,8 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/cart.css?v=4" />
-  <link rel="stylesheet" href="css/account.css?v=19" />
+  <link rel="stylesheet" href="css/cart.css?v=5" />
+  <link rel="stylesheet" href="css/account.css?v=21" />
 </head>
 <body>
 
@@ -460,11 +480,16 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
                 <?php elseif (sf_fulfillment_is_final($type, $r['fulfillment']) && strpos($r['item_key'], 'listing-') === 0): ?>
                 <button type="button" class="link-btn rate-btn" onclick='openRate("rate_order", <?php echo (int) $r['id']; ?>, <?php echo json_encode('Rate ' . $r['title'], JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>★ Rate this order</button>
                 <?php endif; ?>
-                <?php if ($r['dispute_status'] === 'open'): ?>
+                <?php if ($r['fulfillment'] === 'cancelled'): ?>
+                <div class="row-meta dispute-note">You cancelled this<?php echo $r['cancel_reason'] !== '' ? ': ' . $e($r['cancel_reason']) : ''; ?>.</div>
+                <?php elseif ($r['dispute_status'] === 'open'): ?>
                 <div class="row-meta dispute-note">Problem reported: <?php echo $e($r['dispute_reason']); ?>. An admin is reviewing it.</div>
                 <?php elseif ($r['dispute_status'] === 'resolved'): ?>
                 <div class="row-meta dispute-note"><?php echo $r['dispute_outcome'] === 'refund' ? 'Refunded' : 'Dispute closed'; ?>: <?php echo $e($r['dispute_note']); ?></div>
                 <?php elseif (strpos($r['item_key'], 'listing-') === 0): ?>
+                <?php if ($r['fulfillment'] === 'pending'): ?>
+                <button type="button" class="link-btn cancel-btn" onclick='openCancel(<?php echo (int) $r['id']; ?>, <?php echo json_encode($r['title'], JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT); ?>, <?php echo json_encode($type); ?>)'><?php echo ['products' => 'Cancel order', 'rentals' => 'Cancel rental', 'services' => 'Cancel request'][$type] ?? 'Cancel'; ?></button>
+                <?php endif; ?>
                 <button type="button" class="link-btn problem-btn" onclick='openDispute(<?php echo (int) $r['id']; ?>, <?php echo json_encode($r['title'], JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>Report a problem</button>
                 <?php endif; ?>
               </div>
@@ -560,10 +585,24 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
         <div class="card panel">
           <div class="panel-head">
             <h3 class="panel-title">Your Listings</h3>
+            <?php
+              $lowStock = array_filter($listings, fn($l) => $l['type'] === 'products' && (int) $l['stock'] <= SF_LOW_STOCK);
+            ?>
             <?php if (count($listings) > 5): ?>
             <button type="button" class="view-all" onclick="toggleRows(this)" aria-expanded="false">Manage All (<?php echo count($listings); ?>)</button>
             <?php endif; ?>
           </div>
+          <?php if ($lowStock): $soldOut = count(array_filter($lowStock, fn($l) => (int) $l['stock'] === 0)); ?>
+          <div class="stock-alert" role="status">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span><?php
+              $parts = [];
+              if ($soldOut) $parts[] = $soldOut . ' ' . ($soldOut === 1 ? 'product is' : 'products are') . ' out of stock';
+              if (count($lowStock) - $soldOut) $parts[] = (count($lowStock) - $soldOut) . ' ' . (count($lowStock) - $soldOut === 1 ? 'is' : 'are') . ' running low (' . SF_LOW_STOCK . ' or fewer left)';
+              echo ucfirst(implode(' and ', $parts)) . '. Update the stock below when you restock.';
+            ?></span>
+          </div>
+          <?php endif; ?>
           <?php if (!$listings): ?>
           <p class="empty-row">You haven't posted anything yet. <a href="listing_form.php">Create your first listing</a></p>
           <?php endif; ?>
@@ -579,13 +618,32 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
                 'pending' => ['pending', 'Pending review', null],
             ][$l['status']] ?? ['draft', ucfirst($l['status']), null];
           ?>
-          <div class="listing-row"<?php echo $i >= 5 ? ' hidden data-extra' : ''; ?>>
+          <?php
+            // Products: stock level (out / low / in) for the highlight and the badge
+            $stockLevel = null;
+            if ($l['type'] === 'products') {
+                $left = (int) $l['stock'];
+                $stockLevel = $left === 0 ? 'out' : ($left <= SF_LOW_STOCK ? 'low' : 'in');
+            }
+          ?>
+          <div class="listing-row<?php echo in_array($stockLevel, ['out', 'low'], true) ? ' stock-' . $stockLevel : ''; ?>"<?php echo $i >= 5 ? ' hidden data-extra' : ''; ?>>
             <div class="row-main">
               <img src="<?php echo $e($img); ?>" alt="" class="row-thumb<?php echo $img === SF_PLACEHOLDER_IMAGE ? ' placeholder' : ''; ?>" />
               <div class="row-text">
                 <?php if ($live): ?><a href="<?php echo $e(sf_item_link(sf_listing_key($l['id']), $l['type'])); ?>" class="row-title"><?php echo $e($l['title']); ?></a>
                 <?php else: ?><span class="row-title"><?php echo $e($l['title']); ?></span><?php endif; ?>
                 <div class="row-meta">Category: <?php echo $catLbl; ?> • Posted on <?php echo date('M j, Y', strtotime($l['created_at'])); ?></div>
+                <?php if ($stockLevel): ?>
+                <form method="post" class="stock-form">
+                  <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
+                  <input type="hidden" name="action" value="listing_stock" />
+                  <input type="hidden" name="id" value="<?php echo (int) $l['id']; ?>" />
+                  <span class="stock-badge <?php echo $stockLevel; ?>"><?php echo ['out' => 'Out of stock', 'low' => 'Low stock', 'in' => 'In stock'][$stockLevel]; ?></span>
+                  <label for="stock-<?php echo (int) $l['id']; ?>">Stock</label>
+                  <input type="number" id="stock-<?php echo (int) $l['id']; ?>" name="stock" value="<?php echo (int) $l['stock']; ?>" min="0" max="<?php echo SF_MAX_STOCK; ?>" step="1" inputmode="numeric" required aria-label="Stock for <?php echo $e($l['title']); ?>" />
+                  <button type="submit" class="btn-outline small">Update</button>
+                </form>
+                <?php endif; ?>
                 <?php if ($l['status'] === 'flagged'): ?>
                 <div class="row-meta flag-note">Flagged by an admin: <?php echo $e($l['moderation_note']); ?> Fix it, then request a review.</div>
                 <?php elseif ($l['status'] === 'pending'): ?>
@@ -783,11 +841,6 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
             ['notify_orders', 'Order updates', 'Orders you place, new orders for your listings, and shipping or rental updates.', $user['notify_orders']],
             ['show_online', 'Show when I\'m online', 'Others see a green dot on your picture and when you were last active. Turn off to stay hidden.', $user['show_online']],
           ];
-          // Shown like the mockup, but the site can't send emails or texts yet
-          $unavailable = [
-            ['Email Notifications', 'Get purchase status, student chat requests, and listing approvals.'],
-            ['SMS Reminders', 'Receive immediate phone alerts when a buyer requests gate meetup.'],
-          ];
         ?>
         <form method="post" class="card pref-panel" id="prefsForm">
           <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
@@ -807,12 +860,6 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
               <span class="pref-text"><strong><?php echo $title; ?></strong><span><?php echo $text; ?></span></span>
               <input type="checkbox" name="<?php echo $field; ?>" value="1" class="switch-input" role="switch"<?php echo $on ? ' checked' : ''; ?> />
             </label>
-            <?php endforeach; ?>
-            <?php foreach ($unavailable as [$title, $text]): ?>
-            <div class="pref-row unavailable">
-              <span class="pref-text"><strong><?php echo $title; ?> <em class="soon-tag">Not available yet</em></strong><span><?php echo $text; ?></span></span>
-              <input type="checkbox" class="switch-input" role="switch" disabled aria-label="<?php echo $title; ?> (not available yet)" />
-            </div>
             <?php endforeach; ?>
           </div>
           <p class="field-hint prefs-note">Security alerts, like a password change, are always sent.</p>
@@ -945,9 +992,29 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
     </form>
   </dialog>
 
+  <dialog class="rate-modal" id="cancelModal" aria-labelledby="cancelTitle">
+    <form method="post" id="cancelForm" novalidate>
+      <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
+      <input type="hidden" name="action" value="cancel_item" />
+      <input type="hidden" name="item" id="cancelItem" />
+      <h2 id="cancelTitle">Cancel this order?</h2>
+      <p class="field-hint" id="cancelHint">The seller is told right away. If you paid online, the amount is refunded the way you paid within 5–7 business days. This can't be undone.</p>
+      <label class="form-label" for="cancelReason">Why are you cancelling?</label>
+      <select id="cancelReason" name="reason" class="text-input">
+        <option value="">Choose a reason…</option>
+        <?php foreach (SF_CANCEL_REASONS as $reason): ?><option><?php echo $e($reason); ?></option><?php endforeach; ?>
+      </select>
+      <p class="field-error" id="cancelError"></p>
+      <div class="wizard-actions">
+        <button type="button" class="btn-outline" onclick="document.getElementById('cancelModal').close()">Keep it</button>
+        <button type="submit" class="btn-danger">Yes, cancel</button>
+      </div>
+    </form>
+  </dialog>
+
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
   <script src="js/dashboard-motion.js?v=1"></script>
   <script>
@@ -968,6 +1035,19 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
       }
     });
     document.getElementById('rateModal').addEventListener('click', e => { if (e.target.id === 'rateModal') e.target.close(); });
+
+    // Cancelling an item the seller hasn't started on yet
+    function openCancel(item, title, type) {
+      document.getElementById('cancelForm').reset();
+      document.getElementById('cancelItem').value = item;
+      document.getElementById('cancelTitle').textContent = ({ products: 'Cancel order: ', rentals: 'Cancel rental: ', services: 'Cancel request: ' }[type] || 'Cancel: ') + title;
+      document.getElementById('cancelError').textContent = '';
+      document.getElementById('cancelModal').showModal();
+    }
+    document.getElementById('cancelForm').addEventListener('submit', e => {
+      if (!document.getElementById('cancelReason').value) { e.preventDefault(); document.getElementById('cancelError').textContent = 'Please choose a reason.'; }
+    });
+    document.getElementById('cancelModal').addEventListener('click', e => { if (e.target.id === 'cancelModal') e.target.close(); });
 
     // Disputes: report a problem with one bought item
     function openDispute(item, title) {

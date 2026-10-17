@@ -44,7 +44,7 @@ while ($s = $res->fetch_assoc()) $sellers[$s['store_name'] . ' (' . $s['email'] 
 
 // Add Listing modal: values and errors to re-open it with
 $addErrors = [];
-$addValues = ['title' => '', 'seller' => '', 'category' => '', 'price' => '', 'status' => 'pending'];
+$addValues = ['title' => '', 'seller' => '', 'category' => '', 'price' => '', 'stock' => '1', 'status' => 'pending'];
 $addStatuses = ['pending' => 'Pending review', 'active' => 'Active', 'draft' => 'Draft'];
 // Manage Listing modal, Edit Details: re-opens with these after a failed save
 $editErrors = [];
@@ -61,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'seller'   => trim(preg_replace('/\s+/', ' ', (string) ($_POST['seller'] ?? ''))),
             'category' => (string) ($_POST['category'] ?? ''),
             'price'    => str_replace([',', ' ', '₱'], '', trim((string) ($_POST['price'] ?? ''))),
+            'stock'    => str_replace([',', ' '], '', trim((string) ($_POST['stock'] ?? ''))),   // products only
             'status'   => isset($addStatuses[$_POST['status'] ?? '']) ? $_POST['status'] : 'pending',
         ];
         // Seller: a suggestion picked from the list, or just their store name / email typed in full
@@ -75,6 +76,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$seller) $addErrors['seller'] = $addValues['seller'] === '' ? 'Choose the seller.' : 'Pick an approved seller from the suggestions.';
         if (!isset($categories[$type][$slug])) $addErrors['category'] = 'Choose a category.';
         if (!preg_match('/^\d{1,7}(\.\d{1,2})?$/', $addValues['price']) || (float) $addValues['price'] < 1) $addErrors['price'] = 'Enter a price from ₱1 to ₱9,999,999.';
+        if ($type === 'products' && (!ctype_digit($addValues['stock']) || (int) $addValues['stock'] > SF_MAX_STOCK)) {
+            $addErrors['stock'] = 'Enter the stock, from 0 to ' . number_format(SF_MAX_STOCK) . '.';
+        }
 
         if (!$addErrors) {
             // Rentals are priced per day and services per session, like the seller's own form;
@@ -82,8 +86,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $unit   = $type === 'rentals' ? 'day' : ($type === 'services' ? 'session' : '');
             $price  = (float) $addValues['price'];
             $sellerId = (int) $seller['user_id'];
-            $stmt = $conn->prepare("INSERT INTO listings (seller_id, type, title, category, price, unit, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("isssdss", $sellerId, $type, $addValues['title'], $slug, $price, $unit, $addValues['status']);
+            $stock  = $type === 'products' ? (int) $addValues['stock'] : 0;
+            $stmt = $conn->prepare("INSERT INTO listings (seller_id, type, title, category, price, stock, unit, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("isssdiss", $sellerId, $type, $addValues['title'], $slug, $price, $stock, $unit, $addValues['status']);
             $stmt->execute();
             $stmt->close();
             sf_notify($conn, $sellerId, 'info', 'New listing added to your store: ' . $addValues['title'],
@@ -107,6 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'title'    => trim(preg_replace('/\s+/', ' ', (string) ($_POST['title'] ?? ''))),
             'category' => (string) ($_POST['category'] ?? ''),
             'price'    => str_replace([',', ' ', '₱'], '', trim((string) ($_POST['price'] ?? ''))),
+            'stock'    => $listing['type'] === 'products' ? str_replace([',', ' '], '', trim((string) ($_POST['stock'] ?? ''))) : (string) $listing['stock'],
             'status'   => (string) ($_POST['status'] ?? ''),
         ];
         // The type stays (it decides how the price works); any category of that type, including its current one
@@ -116,13 +122,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (mb_strlen($editValues['title']) < 3 || mb_strlen($editValues['title']) > 100) $editErrors['title'] = 'Enter a title (3–100 characters).';
         if (!isset($categories[$editValues['category']])) $editErrors['category'] = 'Choose a category.';
         if (!preg_match('/^\d{1,7}(\.\d{1,2})?$/', $editValues['price']) || (float) $editValues['price'] < 1) $editErrors['price'] = 'Enter a price from ₱1 to ₱9,999,999.';
+        if (!ctype_digit($editValues['stock']) || (int) $editValues['stock'] > SF_MAX_STOCK) {
+            $editErrors['stock'] = 'Enter the stock, from 0 to ' . number_format(SF_MAX_STOCK) . '.';
+        }
         if (!isset($editStatuses[$editValues['status']])) $editErrors['status'] = 'Choose a status.';
 
         if (!$editErrors) {
             $price = (float) $editValues['price'];
             $note  = $editValues['status'] === 'flagged' ? $listing['moderation_note'] : '';
-            $stmt = $conn->prepare("UPDATE listings SET title = ?, category = ?, price = ?, status = ?, moderation_note = ? WHERE id = ?");
-            $stmt->bind_param("ssdssi", $editValues['title'], $editValues['category'], $price, $editValues['status'], $note, $id);
+            $stock = (int) $editValues['stock'];
+            $stmt = $conn->prepare("UPDATE listings SET title = ?, category = ?, price = ?, stock = ?, status = ?, moderation_note = ? WHERE id = ?");
+            $stmt->bind_param("ssdissi", $editValues['title'], $editValues['category'], $price, $stock, $editValues['status'], $note, $id);
             $stmt->execute();
             $stmt->close();
             sf_notify($conn, (int) $listing['seller_id'], 'info', 'An admin updated your listing: ' . $editValues['title'],
@@ -217,7 +227,7 @@ function listing_when(array $l) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="CSS/admin.css?v=22" />
+  <link rel="stylesheet" href="CSS/admin.css?v=23" />
   <link rel="stylesheet" href="CSS/admin-shell.css?v=2" />
 </head>
 <body>
@@ -294,7 +304,7 @@ function listing_when(array $l) {
                       'status' => $l['status'], 'statusLabel' => $statusLabel, 'note' => $l['moderation_note'],
                       'description' => $l['description'], 'location' => $l['location'], 'photo' => $photos[0] ?? '',
                       'photos' => count($photos), 'orders' => (int) $l['orders'], 'listed' => date('M j, Y', $l['created_ts']),
-                      'typeKey' => $l['type'], 'categoryKey' => $l['category'], 'rawPrice' => rtrim(rtrim($l['price'], '0'), '.'),
+                      'typeKey' => $l['type'], 'categoryKey' => $l['category'], 'rawPrice' => rtrim(rtrim($l['price'], '0'), '.'), 'stock' => (int) $l['stock'],
                   ];
                 ?>
                 <tr data-search="<?php echo $e(mb_strtolower($l['title'] . ' ' . $seller . ' ' . $l['username'] . ' ' . $category)); ?>" data-status="<?php echo $e($l['status']); ?>">
@@ -382,6 +392,11 @@ function listing_when(array $l) {
         <input type="text" id="e_price" name="price" inputmode="decimal" maxlength="12" autocomplete="off" value="<?php echo $e($editValues['price'] ?? ''); ?>"<?php echo $eBad('price'); ?> />
         <?php echo $eErr('price'); ?>
       </div>
+      <div class="adm-field" id="eStockField" hidden>
+        <label for="e_stock">Stock quantity</label>
+        <input type="number" id="e_stock" name="stock" min="0" max="<?php echo SF_MAX_STOCK; ?>" step="1" inputmode="numeric" value="<?php echo $e($editValues['stock'] ?? ''); ?>"<?php echo $eBad('stock'); ?> />
+        <?php echo $eErr('stock'); ?>
+      </div>
       <div class="adm-field">
         <label for="e_status">Status</label>
         <select id="e_status" name="status" class="status-select<?php echo isset($editErrors['status']) ? ' has-error' : ''; ?>"></select>
@@ -437,6 +452,11 @@ function listing_when(array $l) {
         <input type="text" id="al_price" name="price" value="<?php echo $e($addValues['price']); ?>" inputmode="decimal" maxlength="12" autocomplete="off" placeholder="₱0.00" required<?php echo $bad('price'); ?> />
         <?php echo $err('price'); ?>
       </div>
+      <div class="adm-field" id="alStockField" hidden>
+        <label for="al_stock">Stock quantity</label>
+        <input type="number" id="al_stock" name="stock" value="<?php echo $e($addValues['stock']); ?>" min="0" max="<?php echo SF_MAX_STOCK; ?>" step="1" inputmode="numeric" autocomplete="off"<?php echo $bad('stock'); ?> />
+        <?php echo $err('stock'); ?>
+      </div>
       <div class="adm-field">
         <label for="al_status">Status</label>
         <select id="al_status" name="status">
@@ -465,6 +485,7 @@ function listing_when(array $l) {
     const syncUnit = () => {
       const type = alCategory.value.split('|')[0];
       document.getElementById('al_unit').textContent = type === 'rentals' ? '(per day)' : type === 'services' ? '(per session)' : '';
+      document.getElementById('alStockField').hidden = type !== 'products';   // only products have stock
     };
     alCategory.addEventListener('change', syncUnit);
     syncUnit();
@@ -482,7 +503,7 @@ function listing_when(array $l) {
       set('mTitle', l.title);
       set('mSeller', 'Seller: ' + l.seller + (l.sellerSuspended ? ' (account suspended)' : ''));
       set('mCategory', l.type + ' · ' + l.category);
-      set('mPrice', l.price);
+      set('mPrice', l.price + (l.typeKey === 'products' ? ' · ' + (l.stock > 0 ? l.stock + ' in stock' : 'Out of stock') : ''));
       const status = document.getElementById('mStatus');
       status.textContent = l.statusLabel;
       status.className = 'review-status ' + (statusTones[l.status] || '');
@@ -505,7 +526,7 @@ function listing_when(array $l) {
       document.getElementById('mDelete').hidden = l.orders > 0;
       set('mDeleteNote', l.orders > 0 ? 'This listing has orders, so it can\'t be removed. Flag it to hide it instead.' : '');
 
-      fillEdit(l.typeKey, l.status, { title: l.title, category: l.categoryKey, price: l.rawPrice, status: l.status }, l.photo);
+      fillEdit(l.typeKey, l.status, { title: l.title, category: l.categoryKey, price: l.rawPrice, stock: l.stock, status: l.status }, l.photo);
       document.getElementById('eId').value = l.id;
       document.querySelectorAll('#mEditForm .adm-field-error').forEach(el => el.remove());
       document.querySelectorAll('#mEditForm .has-error').forEach(el => el.classList.remove('has-error'));
@@ -528,6 +549,8 @@ function listing_when(array $l) {
       tintStatus();
       document.getElementById('e_title').value = v.title;
       document.getElementById('e_price').value = v.price;
+      document.getElementById('e_stock').value = v.stock;
+      document.getElementById('eStockField').hidden = type !== 'products';
 
       // "Currently Editing Listing": its cover photo when it has one
       document.getElementById('eCurrent').textContent = v.title;
@@ -556,7 +579,7 @@ function listing_when(array $l) {
     });
     <?php if ($editErrors): ?>
     // Show what needs fixing
-    fillEdit(<?php echo json_encode($editValues['type']); ?>, <?php echo json_encode($editValues['current']); ?>, <?php echo json_encode(['title' => $editValues['title'], 'category' => $editValues['category'], 'price' => $editValues['price'], 'status' => $editValues['status']], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
+    fillEdit(<?php echo json_encode($editValues['type']); ?>, <?php echo json_encode($editValues['current']); ?>, <?php echo json_encode(['title' => $editValues['title'], 'category' => $editValues['category'], 'price' => $editValues['price'], 'stock' => $editValues['stock'], 'status' => $editValues['status']], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
     showListingEdit(true);
     modal.showModal();
     <?php endif; ?>

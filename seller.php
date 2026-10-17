@@ -47,10 +47,16 @@ function sf_fulfillment_is_final($type, $status) {
     return isset(SF_FULFILLMENT[$type][$status]) && SF_FULFILLMENT[$type][$status][1] === null;
 }
 
+// 'refunded' (an admin refunded a dispute) and 'cancelled' (the buyer cancelled before the seller
+// started) sit outside the steps above: the item is finished but never counts as a sale, so
+// sf_fulfillment_is_final() is false for them.
+function sf_item_closed($status) {
+    return $status === 'refunded' || $status === 'cancelled';
+}
+
 // CSS modifier for the status badge.
-// 'refunded' (set when an admin refunds a dispute) sits outside the steps above: it's finished,
-// but it never counts as a sale, so sf_fulfillment_is_final() is false for it.
 function sf_status_class($type, $status) {
+    if ($status === 'cancelled') return 'cancelled';
     if ($status === 'refunded' || sf_fulfillment_is_final($type, $status)) return 'done';
     return $status === 'pending' ? 'pending' : 'active';
 }
@@ -290,11 +296,81 @@ function sf_advance_fulfillment($conn, $sellerId, $orderItemId, $sellerName) {
     return $next;
 }
 
+// ── Cancelling (buyer) ──────────────────────────────────────────
+// A buyer can cancel an item only while it's still pending: not shipped, not picked up,
+// not started. After that, "Report a problem" (a dispute) is the way.
+const SF_CANCEL_REASONS = ['Changed my mind', 'Ordered by mistake', 'Found it somewhere else', 'Seller isn\'t responding', 'Wrong dates or details', 'Other'];
+
+// Returns an error message, or null when it was cancelled
+function sf_cancel_order_item($conn, $buyerId, $orderItemId, $reason) {
+    if (!in_array($reason, SF_CANCEL_REASONS, true)) return 'Please choose why you\'re cancelling.';
+    $stmt = $conn->prepare("SELECT oi.id, oi.title, oi.item_type, oi.fulfillment, oi.dispute_status, oi.line_total, o.order_no, o.payment_method, l.seller_id
+                            FROM order_items oi JOIN orders o ON o.id = oi.order_id
+                            LEFT JOIN listings l ON oi.item_key = CONCAT('listing-', l.id)
+                            WHERE oi.id = ? AND o.user_id = ?");
+    $stmt->bind_param("ii", $orderItemId, $buyerId);
+    $stmt->execute();
+    $item = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$item) return 'That order could not be found.';
+    if ($item['fulfillment'] === 'cancelled') return 'This item is already cancelled.';
+    if ($item['dispute_status'] === 'open') return 'An admin is reviewing a problem with this item, so it can\'t be cancelled now.';
+    if ($item['fulfillment'] !== 'pending') {
+        return [
+            'products' => 'This item has already been shipped, so it can\'t be cancelled. Use "Report a problem" instead.',
+            'rentals'  => 'This rental has already started, so it can\'t be cancelled. Use "Report a problem" instead.',
+            'services' => 'The provider has already started, so it can\'t be cancelled. Use "Report a problem" instead.',
+        ][$item['item_type']] ?? 'This item can\'t be cancelled any more.';
+    }
+
+    // Only if it's still pending (the seller may have just updated it). Stock taken at checkout goes back
+    // in the same transaction; the row lock and stock_deducted = 1 check make sure it's returned only once.
+    $conn->begin_transaction();
+    try {
+        $stmt = $conn->prepare("SELECT item_key, quantity, stock_deducted FROM order_items WHERE id = ? AND fulfillment = 'pending' FOR UPDATE");
+        $stmt->bind_param("i", $item['id']);
+        $stmt->execute();
+        $locked = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$locked) {
+            $conn->rollback();
+            return 'The seller just updated this item, so it can\'t be cancelled now. Please refresh.';
+        }
+        $stmt = $conn->prepare("UPDATE order_items SET fulfillment = 'cancelled', cancel_reason = ?, cancelled_at = NOW(), stock_deducted = 0
+                                WHERE id = ? AND fulfillment = 'pending'");
+        $stmt->bind_param("si", $reason, $item['id']);
+        $stmt->execute();
+        $stmt->close();
+        if ((int) $locked['stock_deducted'] === 1) {
+            $listingId = (int) substr($locked['item_key'], 8);
+            $qty       = (int) $locked['quantity'];
+            $stmt = $conn->prepare("UPDATE listings SET stock = LEAST(stock + ?, " . SF_MAX_STOCK . ") WHERE id = ? AND type = 'products'");
+            $stmt->bind_param("ii", $qty, $listingId);
+            $stmt->execute();
+            $stmt->close();
+        }
+        $conn->commit();
+    } catch (Throwable $ex) {
+        $conn->rollback();
+        return 'This item could not be cancelled. Please try again.';
+    }
+
+    $what = '"' . $item['title'] . '" (order #' . $item['order_no'] . ')';
+    if ($item['seller_id']) {
+        sf_notify($conn, (int) $item['seller_id'], 'order', 'Order cancelled by the buyer',
+            $what . ' was cancelled. Reason: ' . $reason . '. You don\'t need to do anything.', 'account.php?tab=seller');
+    }
+    $paidOnline = $item['payment_method'] !== 'cod';
+    sf_notify($conn, (int) $buyerId, 'order', 'Order cancelled',
+        'You cancelled ' . $what . '.' . ($paidOnline ? ' Your ' . sf_peso($item['line_total']) . ' will be refunded the way you paid within 5–7 business days.' : ''), 'account.php');
+    return null;
+}
+
 // ── Orders: buyer side ──────────────────────────────────────────
 // Everything this user has bought, newest first, grouped by listing type
 function sf_buyer_items($conn, $userId) {
     $stmt = $conn->prepare("SELECT oi.id, oi.item_key, oi.item_type, oi.title, oi.seller, oi.units, oi.quantity, oi.line_total,
-                                   oi.fulfillment, oi.dispute_status, oi.dispute_outcome, oi.dispute_reason, oi.dispute_note,
+                                   oi.fulfillment, oi.dispute_status, oi.dispute_outcome, oi.dispute_reason, oi.dispute_note, oi.cancel_reason,
                                    o.order_no, UNIX_TIMESTAMP(o.created_at) AS ts
                             FROM order_items oi JOIN orders o ON o.id = oi.order_id
                             WHERE o.user_id = ?
@@ -396,6 +472,7 @@ function sf_open_dispute($conn, $buyerId, $orderItemId, $reason, $details) {
     if (!$item) return 'That order could not be found.';
     if ($item['dispute_status'] !== '') return 'You\'ve already reported a problem with this item.';
     if ($item['fulfillment'] === 'refunded') return 'This item was already refunded.';
+    if ($item['fulfillment'] === 'cancelled') return 'This item was cancelled.';
 
     $stmt = $conn->prepare("UPDATE order_items SET dispute_status = 'open', dispute_reason = ?, dispute_details = ?, disputed_at = NOW() WHERE id = ?");
     $stmt->bind_param("ssi", $reason, $details, $item['id']);

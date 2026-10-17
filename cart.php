@@ -33,7 +33,7 @@ $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/cart.css?v=4" />
+  <link rel="stylesheet" href="css/cart.css?v=5" />
 </head>
 <body>
 
@@ -61,12 +61,13 @@ $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
             <a href="<?php echo $e($item['link']); ?>" class="cart-item-title"><?php echo $e($item['title']); ?></a>
             <div class="cart-item-meta">Seller: <?php echo $e($item['seller']); ?></div>
             <div class="cart-item-meta">Condition / Term: <?php echo $e($item['term_label']); ?></div>
+            <div class="cart-stock-warn" data-stock-warn<?php echo $item['stock_problem'] === '' ? ' hidden' : ''; ?>><?php echo $e($item['stock_problem']); ?></div>
           </div>
           <div class="cart-line-total" data-line-total><?php echo sf_peso($item['line_total']); ?></div>
           <div class="qty-stepper" aria-label="Quantity">
             <button type="button" class="qty-btn" aria-label="Decrease quantity" onclick="changeQty(this, -1)"<?php echo $item['quantity'] <= 1 ? ' disabled' : ''; ?>>&minus;</button>
             <span class="qty-num" data-qty><?php echo $item['quantity']; ?></span>
-            <button type="button" class="qty-btn" aria-label="Increase quantity" onclick="changeQty(this, 1)"<?php echo $item['quantity'] >= SF_MAX_QTY ? ' disabled' : ''; ?>>+</button>
+            <button type="button" class="qty-btn" aria-label="Increase quantity" onclick="changeQty(this, 1)" data-max="<?php echo $item['max_qty']; ?>"<?php echo $item['quantity'] >= $item['max_qty'] ? ' disabled' : ''; ?>>+</button>
           </div>
           <button type="button" class="remove-btn" aria-label="Remove <?php echo $e($item['title']); ?>" onclick="removeLine(this)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>
@@ -78,7 +79,9 @@ $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
       <!-- Order summary -->
       <aside class="card card-pad summary-card">
         <?php sf_render_summary($totals, 'cart'); ?>
-        <a href="checkout.php" class="btn-primary">Proceed to checkout</a>
+        <?php $stockProblem = sf_stock_problems($items); ?>
+        <p class="cart-stock-warn" id="checkoutBlocked"<?php echo $stockProblem === '' ? ' hidden' : ''; ?>>Some items don't have enough stock. Fix them to check out.</p>
+        <a href="checkout.php?from=cart" class="btn-primary<?php echo $stockProblem !== '' ? ' is-disabled' : ''; ?>" id="checkoutLink"<?php echo $stockProblem !== '' ? ' aria-disabled="true"' : ''; ?>>Proceed to checkout</a>
         <a href="marketplace.php" class="btn-ghost">&larr; Continue shopping</a>
       </aside>
     </div>
@@ -87,10 +90,9 @@ $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
   <script>
-    const MAX_QTY = <?php echo SF_MAX_QTY; ?>;
 
     // Apply the server's response to the page
     function render(r) {
@@ -115,9 +117,20 @@ $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
         line.querySelector('[data-qty]').textContent = data.quantity;
         line.querySelector('[data-line-total]').textContent = data.line_total;
         const [minus, plus] = line.querySelectorAll('.qty-btn');
+        plus.dataset.max = data.max_qty;
         minus.disabled = data.quantity <= 1;
-        plus.disabled = data.quantity >= MAX_QTY;
+        plus.disabled = data.quantity >= data.max_qty;
+        const warn = line.querySelector('[data-stock-warn]');
+        warn.textContent = data.stock_problem;
+        warn.hidden = !data.stock_problem;
       });
+      const blocked = !!r.stock_problem;
+      const link = document.getElementById('checkoutLink');
+      if (link) {
+        link.classList.toggle('is-disabled', blocked);
+        if (blocked) link.setAttribute('aria-disabled', 'true'); else link.removeAttribute('aria-disabled');
+        document.getElementById('checkoutBlocked').hidden = !blocked;
+      }
 
       if (r.count === 0) {
         document.getElementById('cartGrid').remove();
@@ -143,7 +156,8 @@ $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
     function changeQty(btn, delta) {
       const line = btn.closest('.cart-line');
       const qty = parseInt(line.querySelector('[data-qty]').textContent, 10) + delta;
-      if (qty < 1 || qty > MAX_QTY) return;
+      const max = parseInt(line.querySelectorAll('.qty-btn')[1].dataset.max, 10);
+      if (qty < 1 || (delta > 0 && qty > max)) return;   // lowering always works, even if it's still above the stock
       send({ action: 'update', key: line.dataset.key, qty: qty }, line).catch(() => {});
     }
 

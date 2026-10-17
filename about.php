@@ -48,7 +48,7 @@ $commitments = [
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/cart.css?v=4" />
+  <link rel="stylesheet" href="css/cart.css?v=5" />
   <link rel="stylesheet" href="css/about.css?v=3" />
 </head>
 <body>
@@ -96,7 +96,7 @@ $commitments = [
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
 </body>
 </html>

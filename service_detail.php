@@ -50,7 +50,7 @@ $csrf     = sf_csrf_token();
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/detail.css?v=11" />
+  <link rel="stylesheet" href="css/detail.css?v=12" />
 </head>
 <body>
 
@@ -392,7 +392,7 @@ $csrf     = sf_csrf_token();
     </form>
   </dialog>
 
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
   <script src="js/report.js?v=1"></script>
   <script>
@@ -451,7 +451,7 @@ $csrf     = sf_csrf_token();
       const btn = document.getElementById('srvSubmit');
       btn.disabled = true;
       try {
-        await SFCart.add(ITEM_ID, 1, units);
+        await SFCart.buyNow(ITEM_ID, 1, units);   // just this booking, the cart is left alone
         const text = 'Service request: ' + ITEM_TITLE + ' (' + units + ' ' + UNIT_WORDS[units === 1 ? 0 : 1] + ')\n'
           + 'When: ' + day + ', ' + time.options[time.selectedIndex].text + '\n'
           + 'Where: ' + where.value.trim() + '\n'

@@ -71,8 +71,8 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/cart.css?v=4" />
-  <link rel="stylesheet" href="css/inbox.css?v=5" />
+  <link rel="stylesheet" href="css/cart.css?v=5" />
+  <link rel="stylesheet" href="css/inbox.css?v=6" />
 </head>
 <body>
 
@@ -108,7 +108,7 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
 
             <?php foreach ($conversations as $c):
               $isActive = $partner && (int) $c['id'] === (int) $partner['id'];
-              $preview  = ((int) $c['last_sender'] === $userId ? 'You: ' : '') . ($c['last_unsent'] ? 'Message unsent' : sf_excerpt($c['last_body'], 40));
+              $preview  = ((int) $c['last_sender'] === $userId ? 'You: ' : '') . ($c['last_unsent'] ? 'Message unsent' : ($c['last_body'] === '' && $c['last_photo'] ? '📷 Photo' : sf_excerpt($c['last_body'], 40)));
             ?>
             <a href="messages.php?with=<?php echo (int) $c['id']; ?>" class="convo-item<?php echo $isActive ? ' active' : ''; echo $c['unread'] ? ' has-unread' : ''; ?>" data-name="<?php echo $e(mb_strtolower($c['username'])); ?>"<?php echo $profileAttr($c); ?>>
               <span class="presence"><span class="avatar"><?php echo sf_avatar_html($c['username'], $c['avatar']); ?></span><?php echo sf_online_dot($c); ?></span>
@@ -175,7 +175,16 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
           <div class="reply-bar-text"><strong id="replyBarWho"></strong><span id="replyBarQuote"></span></div>
           <button type="button" class="reply-bar-close" id="replyBarClose" aria-label="Cancel reply">&times;</button>
         </div>
+        <div class="photo-bar" id="photoBar" hidden>
+          <img id="photoPreview" alt="Photo to send" />
+          <div class="photo-bar-text"><strong>Photo ready to send</strong><span id="photoName"></span></div>
+          <button type="button" class="reply-bar-close" id="photoClear" aria-label="Remove photo">&times;</button>
+        </div>
         <form class="chat-compose" id="chatForm" autocomplete="off">
+          <label class="btn-attach" title="Send a photo (e.g. a payment screenshot)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp" aria-label="Send a photo" />
+          </label>
           <input type="text" id="chatInput" class="text-input" placeholder="Write a message..." maxlength="<?php echo SF_MESSAGE_MAX; ?>" aria-label="Write a message" />
           <button type="submit" class="btn-send" id="sendBtn">Send</button>
         </form>
@@ -192,7 +201,7 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
   <script src="js/report.js?v=1"></script>
   <script src="js/profile-menu.js?v=2"></script>
@@ -229,6 +238,8 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
       const PARTNER_ID   = <?php echo (int) $partner['id']; ?>;
       const PARTNER_NAME = <?php echo json_encode($partner['username'], JSON_HEX_TAG | JSON_HEX_AMP); ?>;
       const REACTIONS    = <?php echo json_encode(SF_REACTIONS, JSON_UNESCAPED_UNICODE); ?>;
+      const CSRF         = <?php echo json_encode(sf_csrf_token()); ?>;   // photo uploads need it
+      const PHOTO_MAX    = <?php echo SF_CHAT_MAX_BYTES; ?>;
       const list  = document.getElementById('chatMessages');
       const form  = document.getElementById('chatForm');
       const input = document.getElementById('chatInput');
@@ -307,7 +318,22 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
           wrap.append(quote);
         }
         const row = el('div', 'msg-row');
-        const bubble = el('div', 'msg-bubble', m.body);
+        const bubble = el('div', 'msg-bubble' + (m.photo ? ' has-photo' : '') + (m.photo && !m.body ? ' photo-only' : ''));
+        if (m.photo) {
+          const link = el('a', 'msg-photo-link');
+          link.href = m.photo;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.title = 'Open full size';
+          const img = el('img', 'msg-photo');
+          img.src = m.photo;
+          img.alt = m.mine ? 'Photo you sent' : 'Photo from ' + PARTNER_NAME;
+          img.loading = 'lazy';
+          img.addEventListener('load', () => { if (m.mine) scrollToEnd(); });
+          link.append(img);
+          bubble.append(link);
+        }
+        if (m.body) bubble.append(el('span', 'msg-text', m.body));
         bubble.tabIndex = 0;
         const actions = el('div', 'msg-actions');
         actions.append(actionButton('react', 'React'), actionButton('reply', 'Reply'), actionButton('more', 'More'));
@@ -387,7 +413,7 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
         } catch (err) { SFCart.toast(err.message || 'Could not react. Please try again.', true); }
       }
       function startReply(wrap) {
-        replyTo = { id: Number(wrap.dataset.id), author: wrap.dataset.author, text: wrap.querySelector('.msg-bubble').textContent };
+        replyTo = { id: Number(wrap.dataset.id), author: wrap.dataset.author, text: wrap.querySelector('.msg-bubble').textContent.trim() || '📷 Photo' };
         document.getElementById('replyBarWho').textContent = 'Replying to ' + (replyTo.author === 'You' ? 'yourself' : replyTo.author);
         document.getElementById('replyBarQuote').textContent = replyTo.text.length > 90 ? replyTo.text.slice(0, 90) + '…' : replyTo.text;
         document.getElementById('replyBar').hidden = false;
@@ -469,20 +495,60 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
       window.addEventListener('resize', closePops);
 
       // ── Sending ──
+      // ── Photo to send (e.g. a payment screenshot) ──
+      const photoInput = document.getElementById('photoInput');
+      let photo = null;
+      function clearPhoto() {
+        photo = null;
+        photoInput.value = '';
+        const preview = document.getElementById('photoPreview');
+        if (preview.src) URL.revokeObjectURL(preview.src);
+        preview.removeAttribute('src');
+        document.getElementById('photoBar').hidden = true;
+      }
+      photoInput.addEventListener('change', () => {
+        const file = photoInput.files[0];
+        if (!file) return;
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { SFCart.toast('Send a JPG, PNG or WebP photo.', true); photoInput.value = ''; return; }
+        if (file.size > PHOTO_MAX) { SFCart.toast('That photo is over 5 MB.', true); photoInput.value = ''; return; }
+        clearPhoto();
+        photo = file;
+        document.getElementById('photoPreview').src = URL.createObjectURL(file);
+        document.getElementById('photoName').textContent = file.name + ' · add a caption or press Send';
+        document.getElementById('photoBar').hidden = false;
+        input.focus();
+      });
+      document.getElementById('photoClear').addEventListener('click', () => { clearPhoto(); input.focus(); });
+
       form.addEventListener('submit', async function (e) {
         e.preventDefault();
         const text = input.value.trim();
-        if (!text) return;
+        if (!text && !photo) return;
         btn.disabled = true;
         try {
-          const r = await post({ action: 'send', to: PARTNER_ID, text: text, reply_to: replyTo ? replyTo.id : 0 });
+          let r;
+          if (photo) {
+            const data = new FormData();
+            data.append('action', 'send_photo');
+            data.append('csrf_token', CSRF);
+            data.append('to', PARTNER_ID);
+            data.append('text', text);
+            data.append('reply_to', replyTo ? replyTo.id : 0);
+            data.append('photo', photo);
+            btn.textContent = 'Sending…';
+            r = await fetch('inbox_handler.php', { method: 'POST', credentials: 'same-origin', body: data }).then(res => res.json());
+          } else {
+            r = await post({ action: 'send', to: PARTNER_ID, text: text, reply_to: replyTo ? replyTo.id : 0 });
+          }
           if (!r.success) throw new Error(r.message);
           input.value = '';
+          clearPhoto();
           cancelReply();
           addMessage(r.message);
         } catch (err) {
           SFCart.toast(err.message || 'Your message could not be sent. Please try again.', true);
         }
+        btn.textContent = 'Send';
         btn.disabled = false;
         input.focus();
       });

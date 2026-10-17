@@ -834,3 +834,8 @@ html:not(.js-motion) .section-title::after { transform: scaleX(1); }
 }
 /* Once a card has animated in, drop the animation so its hover lift works again */
 .js-motion .product-card.is-done, .js-motion .category-card.is-done { animation: none; opacity: 1; }
+
+/* Stock (products) */
+.badge-stock-in  { background-color: #ecfdf5; color: #047857; }
+.badge-stock-low { background-color: #fffbeb; color: #b45309; }
+.badge-stock-out { background-color: #fef2f2; color: #b91c1c; }

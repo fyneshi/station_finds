@@ -338,7 +338,7 @@ $badgeLabels = [
     </div>
   </footer>
 
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
   <script>
     let currentFilter = 'all';

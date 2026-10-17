@@ -22,6 +22,7 @@ $statuses = [
     'processing' => ['Processing', 'pending'],
     'completed'  => ['Completed', 'active'],
     'disputed'   => ['Disputed', 'flagged'],
+    'cancelled'  => ['Cancelled', 'draft'],   // every item cancelled by the buyer
 ];
 
 $flash = $_SESSION['flash'] ?? null;
@@ -64,8 +65,10 @@ while ($row = $res->fetch_assoc()) $itemsByOrder[$row['order_id']][] = $row;
 foreach ($orders as &$o) {
     $o['items']  = $itemsByOrder[$o['id']] ?? [];
     $disputed    = array_filter($o['items'], fn($i) => $i['dispute_status'] === 'open');
-    $done        = array_filter($o['items'], fn($i) => $i['fulfillment'] === 'refunded' || sf_fulfillment_is_final($i['item_type'], $i['fulfillment']));
-    $o['status'] = $disputed ? 'disputed' : ($o['items'] && count($done) === count($o['items']) ? 'completed' : 'processing');
+    $done        = array_filter($o['items'], fn($i) => sf_item_closed($i['fulfillment']) || sf_fulfillment_is_final($i['item_type'], $i['fulfillment']));
+    $cancelled   = array_filter($o['items'], fn($i) => $i['fulfillment'] === 'cancelled');
+    $o['status'] = $disputed ? 'disputed' : ($o['items'] && count($cancelled) === count($o['items']) ? 'cancelled'
+                 : ($o['items'] && count($done) === count($o['items']) ? 'completed' : 'processing'));
     $o['sellers'] = implode(', ', array_unique(array_column($o['items'], 'seller_name')));
 }
 unset($o);
@@ -115,7 +118,7 @@ function order_info(array $o, array $methods) {
             'qty' => (int) $i['quantity'], 'units' => (int) $i['units'], 'type' => $i['item_type'],
             'total' => sf_peso_exact($i['line_total']), 'status' => sf_fulfillment_label($i['item_type'], $i['fulfillment']),
             'dispute' => $i['dispute_status'], 'reason' => $i['dispute_reason'], 'details' => $i['dispute_details'],
-            'outcome' => $i['dispute_outcome'], 'note' => $i['dispute_note'],
+            'outcome' => $i['dispute_outcome'], 'note' => $i['dispute_note'], 'cancel' => $i['fulfillment'] === 'cancelled' ? ($i['cancel_reason'] !== '' ? $i['cancel_reason'] : 'No reason given') : '',
             'disputed' => $i['disputed_ts'] ? date('M j, Y', $i['disputed_ts']) : '',
         ], $o['items']),
     ];
@@ -130,7 +133,7 @@ function order_info(array $o, array $methods) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="CSS/admin.css?v=22" />
+  <link rel="stylesheet" href="CSS/admin.css?v=23" />
   <link rel="stylesheet" href="CSS/admin-shell.css?v=2" />
 </head>
 <body>
@@ -264,7 +267,7 @@ function order_info(array $o, array $methods) {
     }
 
     const statusLabels = <?php echo json_encode(array_map(fn($s) => $s[0], $statuses)); ?>;
-    const statusTones  = { completed: 'resolved', processing: 'pending', disputed: 'flagged' };
+    const statusTones  = { completed: 'resolved', processing: 'pending', disputed: 'flagged', cancelled: 'dismissed' };
     function openOrder(o) {
       const set = (id, text) => { document.getElementById(id).textContent = text; };
       set('oSub', 'Review transaction #' + o.no);
@@ -315,6 +318,8 @@ function order_info(array $o, array $methods) {
             }
           });
           box.appendChild(form);
+        } else if (i.cancel) {
+          box.appendChild(el('p', 'dispute-text muted', 'Cancelled by the buyer: ' + i.cancel));
         } else if (i.dispute === 'resolved') {
           box.appendChild(el('p', 'dispute-text muted', (i.outcome === 'refund' ? 'Refunded' : 'Released to seller') + ' after a dispute (“' + i.reason + '”). Note: ' + i.note));
         }

@@ -1096,3 +1096,16 @@ a.btn-primary-full.as-link { display: flex; align-items: center; justify-content
 .online-dot { position: absolute; right: 0; bottom: 0; width: 28%; height: 28%; min-width: 10px; min-height: 10px; max-width: 18px; max-height: 18px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 2px #fff; }
 .active-now { color: #15803d; font-weight: 600; }
 .seller-active { display: block; margin-top: 2px; font-size: 12px; color: var(--text-muted); }
+
+/* ── Stock (product page) ── */
+.stock-status { display: inline-flex; align-items: center; gap: 7px; margin-top: -4px; font-size: 13px; font-weight: 700; }
+.stock-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.stock-status.in  { color: #047857; }
+.stock-status.low { color: #b45309; }
+.stock-status.out { color: #b91c1c; }
+.qty-btn:disabled { color: #cbd5e1; cursor: not-allowed; background: transparent; }
+.qty-limit { font-size: 12px; font-weight: 600; color: #b45309; }
+.qty-limit[hidden] { display: none; }
+.btn-buy-now:disabled, .btn-add-cart:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
+.btn-buy-now:disabled:hover { background-color: var(--primary-yellow); }
+.btn-add-cart:disabled:hover { border-color: #cbd5e1; background-color: #ffffff; }

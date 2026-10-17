@@ -33,6 +33,7 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
 $e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $photos = sf_gallery($item);
 $isPlaceholder = $item['image'] === SF_PLACEHOLDER_IMAGE;
+$maxQty = sf_max_qty($item);   // what's left in stock, up to SF_MAX_QTY per order (0 = out of stock)
 
 // Comments & Suggestions: saved to the database (comments.php), shown to everyone
 $pageLink = 'product_detail.php?id=' . $item['id'];
@@ -49,7 +50,7 @@ $csrf     = sf_csrf_token();
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/detail.css?v=11" />
+  <link rel="stylesheet" href="css/detail.css?v=12" />
 </head>
 <body>
 
@@ -209,6 +210,13 @@ $csrf     = sf_csrf_token();
         <!-- Price -->
         <div class="detail-price-main"><?php echo sf_price_html($item); ?></div>
 
+        <!-- Availability (from the listing's stock) -->
+        <?php [$stockClass, $stockText] = sf_stock_status($item); ?>
+        <div class="stock-status <?php echo $stockClass; ?>" id="stockStatus" role="status">
+          <span class="stock-dot" aria-hidden="true"></span>
+          <span id="stockText"><?php echo $e($stockText); ?><?php echo $stockClass === 'in' ? ' &middot; ' . (int) $item['stock'] . ' available' : ''; ?></span>
+        </div>
+
         <?php if ($item['description'] !== ''): ?>
         <!-- Description (sellers' own listings) -->
         <div class="detail-section">
@@ -248,16 +256,17 @@ $csrf     = sf_csrf_token();
         <div class="detail-qty-row">
           <span class="qty-label">Quantity:</span>
           <div class="qty-stepper">
-            <button type="button" class="qty-btn" onclick="changeQty(-1)" aria-label="Decrease quantity">&minus;</button>
-            <span id="qtyVal" class="qty-num">1</span>
-            <button type="button" class="qty-btn" onclick="changeQty(1)" aria-label="Increase quantity">&#43;</button>
+            <button type="button" class="qty-btn" id="qtyMinus" onclick="changeQty(-1)" aria-label="Decrease quantity" disabled>&minus;</button>
+            <span id="qtyVal" class="qty-num" aria-live="polite"><?php echo $maxQty > 0 ? 1 : 0; ?></span>
+            <button type="button" class="qty-btn" id="qtyPlus" onclick="changeQty(1)" aria-label="Increase quantity"<?php echo $maxQty <= 1 ? ' disabled' : ''; ?>>&#43;</button>
           </div>
+          <span class="qty-limit" id="qtyLimit"<?php echo $maxQty > 1 ? ' hidden' : ''; ?>><?php echo $maxQty === 1 ? 'Only 1 available' : ''; ?></span>
         </div>
 
         <!-- Actions -->
         <div class="detail-actions-row">
-          <button type="button" class="btn-buy-now" id="buyNowBtn" onclick="buyNow()">Buy now</button>
-          <button type="button" class="btn-add-cart" id="addCartBtn" onclick="addToCart()">Add to cart</button>
+          <button type="button" class="btn-buy-now" id="buyNowBtn" onclick="buyNow()"<?php echo $maxQty > 0 ? '' : ' disabled'; ?>><?php echo $maxQty > 0 ? 'Buy now' : 'Out of stock'; ?></button>
+          <button type="button" class="btn-add-cart" id="addCartBtn" onclick="addToCart()"<?php echo $maxQty > 0 ? '' : ' disabled'; ?>>Add to cart</button>
         </div>
 
         <!-- Message seller -->
@@ -343,12 +352,14 @@ $csrf     = sf_csrf_token();
     </div>
   </footer>
 
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
   <script src="js/report.js?v=1"></script>
   <script>
     const ITEM_ID = <?php echo json_encode($item['id']); ?>;
-    const MAX_QTY = <?php echo SF_MAX_QTY; ?>;
+    const ORDER_LIMIT = <?php echo SF_MAX_QTY; ?>;      // most of one item per order
+    const LOW_STOCK   = <?php echo SF_LOW_STOCK; ?>;
+    let maxQty = <?php echo $maxQty; ?>;                  // what's left in stock, up to ORDER_LIMIT
 
     // Thumbnail switcher
     function switchMedia(btn, src) {
@@ -359,10 +370,34 @@ $csrf     = sf_csrf_token();
     }
 
     // Quantity stepper
-    let qty = 1;
+    let qty = maxQty > 0 ? 1 : 0;
     function changeQty(delta) {
-      qty = Math.min(MAX_QTY, Math.max(1, qty + delta));
+      if (maxQty < 1) return;
+      qty = Math.min(maxQty, Math.max(1, qty + delta));
+      renderQty();
+    }
+    function renderQty() {
       document.getElementById('qtyVal').textContent = qty;
+      document.getElementById('qtyMinus').disabled = qty <= 1;
+      document.getElementById('qtyPlus').disabled = qty >= maxQty;
+      const limit = document.getElementById('qtyLimit');
+      limit.hidden = maxQty < 1 || qty < maxQty;
+      limit.textContent = maxQty < ORDER_LIMIT ? 'Only ' + maxQty + ' available' : 'Up to ' + ORDER_LIMIT + ' per order';
+    }
+
+    // The server said the stock changed (someone else just bought some): show the new number
+    function applyStock(stock) {
+      maxQty = Math.min(ORDER_LIMIT, Math.max(0, stock));
+      qty = Math.min(Math.max(qty, 1), Math.max(maxQty, 0));
+      if (maxQty < 1) qty = 0;
+      const status = document.getElementById('stockStatus');
+      status.className = 'stock-status ' + (stock <= 0 ? 'out' : stock <= LOW_STOCK ? 'low' : 'in');
+      document.getElementById('stockText').textContent =
+        stock <= 0 ? 'Out of stock' : stock <= LOW_STOCK ? 'Only ' + stock + ' left' : 'In stock · ' + stock + ' available';
+      const buy = document.getElementById('buyNowBtn');
+      buy.textContent = maxQty > 0 ? 'Buy now' : 'Out of stock';
+      buy.disabled = document.getElementById('addCartBtn').disabled = maxQty < 1;
+      renderQty();
     }
 
     // Cart actions
@@ -372,18 +407,21 @@ $csrf     = sf_csrf_token();
       try {
         const r = await SFCart.add(ITEM_ID, qty);
         SFCart.toast(r.message);
-      } catch (e) { /* toast already shown */ }
-      btn.disabled = false;
+      } catch (e) {   // toast already shown
+        if (e.data && typeof e.data.stock === 'number') { applyStock(e.data.stock); return; }
+      }
+      btn.disabled = maxQty < 1;
     }
 
     async function buyNow() {
       const btn = document.getElementById('buyNowBtn');
       btn.disabled = true;
       try {
-        await SFCart.add(ITEM_ID, qty);
+        await SFCart.buyNow(ITEM_ID, qty);   // just this item, the cart is left alone
         window.location.href = 'checkout.php';
       } catch (e) {
         btn.disabled = false;
+        if (e.data && typeof e.data.stock === 'number') applyStock(e.data.stock);
       }
     }
 

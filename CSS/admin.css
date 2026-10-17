@@ -566,3 +566,12 @@ a.manage-btn { display: inline-block; }
 .reset-link { display: block; margin: 12px auto 0; padding: 2px 4px; border: 0; background: none; color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .reset-link:hover { color: var(--muted); }
 .reset-link + .danger-link { margin-top: 6px; }
+
+/* Promo Codes (admin_promos.php) */
+.promo-code { display: inline-block; padding: 4px 10px; border: 1.5px dashed var(--yellow); border-radius: 6px; background: #fff8e6; font-family: ui-monospace, Consolas, monospace; font-size: 13.5px; font-weight: 700; letter-spacing: .5px; color: var(--ink); }
+.promo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.promo-grid > [hidden] { display: none; }
+.promo-check { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.promo-check input { width: 16px; height: 16px; accent-color: var(--yellow); }
+#promoModal .reset-link { margin-top: 10px; }
+@media (max-width: 480px) { .promo-grid { grid-template-columns: 1fr; } }

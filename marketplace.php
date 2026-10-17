@@ -48,10 +48,11 @@ foreach (sf_catalog() as $id => $listing) {
     if ($listing['rating'] > 0) $card['rating'] = $listing['rating'];   // star rating from buyer reviews
     $term = htmlspecialchars(mb_strtoupper($listing['term']), ENT_QUOTES, 'UTF-8');
     if ($type === 'products') {
-        $card['badges']  = [['badge-product', 'PRODUCT'], ['badge-condition', $term]];
+        [$stockClass, $stockText] = sf_stock_status($listing);
+        $card['badges']  = [['badge-product', 'PRODUCT'], ['badge-condition', $term], ['badge-stock-' . $stockClass, mb_strtoupper($stockText)]];
         $card['filters'] = ['category' => $listing['category'], 'condition' => $listing['condition'],
                             'location' => mb_strtolower(trim($listing['location'])), 'seller-rating' => $listing['seller_rating'],
-                            'available' => 1, 'pickup' => 1, 'verified' => 1, 'negotiable' => 0];
+                            'available' => $listing['stock'] > 0 ? 1 : 0, 'pickup' => 1, 'verified' => 1, 'negotiable' => 0];
     } elseif ($type === 'rentals') {
         $card['meta']    = 'Available now · rent by the day';
         $card['badges']  = [['badge-available', 'AVAILABLE NOW'], ['badge-condition', $term]];
@@ -209,7 +210,7 @@ function render_tab_bar(string $type) {
               </select>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </label>
-            <button class="filter-btn" id="filterBtn-' . $type . '" onclick="openFilterModal(\'' . $type . '\')">
+            <button type="button" class="filter-btn" id="filterBtn-' . $type . '" aria-haspopup="dialog" aria-expanded="false" aria-controls="modal-filter-' . $type . '" onclick="openFilterModal(\'' . $type . '\')">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
               <span class="filter-btn-label">Filters</span>
             </button>
@@ -246,7 +247,7 @@ function render_no_results(string $type) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/marketplace.css?v=7" />
+  <link rel="stylesheet" href="css/marketplace.css?v=9" />
 </head>
 <body>
 
@@ -797,7 +798,7 @@ function render_no_results(string $type) {
   </div>
 
   <script src="js/favorites.js?v=2"></script>
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
   <script>
     /* ── Tab switching logic ──────────────────────────────────── */
@@ -989,13 +990,32 @@ function render_no_results(string $type) {
       btn.textContent = (type === 'products' ? 'Apply Filters · ' : 'Show ') + n + ' result' + (n === 1 ? '' : 's');
     }
 
+    // Filters open as a dropdown under their button (the page stays scrollable)
+    let openFilterType = null;
+    function placeFilterDropdown(type) {
+      const btn = document.getElementById('filterBtn-' + type);
+      const panel = getModal(type).querySelector('.filter-modal-dialog');
+      if (!btn || !panel) return;
+      const r = btn.getBoundingClientRect();
+      const top = Math.max(8, r.bottom + 8);
+      panel.style.top = top + 'px';
+      panel.style.right = Math.max(12, window.innerWidth - r.right) + 'px';
+      panel.style.maxHeight = Math.max(240, window.innerHeight - top - 16) + 'px';
+    }
     function openFilterModal(type) {
       const modal = getModal(type);
       if (!modal) return;
+      if (openFilterType && openFilterType !== type) closeFilterModal(openFilterType);
+      if (modal.classList.contains('show')) { closeFilterModal(type); return; }   // the button toggles it
       modalSnapshot[type] = readState(type);
       updatePreview(type);
+      placeFilterDropdown(type);
       modal.classList.add('show');
-      document.body.style.overflow = 'hidden';
+      openFilterType = type;
+      const btn = document.getElementById('filterBtn-' + type);
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+      const first = modal.querySelector('.filter-modal-dialog input, .filter-modal-dialog select, .filter-modal-dialog button:not(.filter-modal-close)');
+      if (first) first.focus({ preventScroll: true });
     }
 
     // Closing without applying discards unapplied changes
@@ -1004,8 +1024,13 @@ function render_no_results(string $type) {
       if (!modal || !modal.classList.contains('show')) return;
       if (modalSnapshot[type]) writeState(type, modalSnapshot[type]);
       modal.classList.remove('show');
-      document.body.style.overflow = '';
+      if (openFilterType === type) openFilterType = null;
+      const btn = document.getElementById('filterBtn-' + type);
+      if (btn) btn.setAttribute('aria-expanded', 'false');
     }
+    // Keep it under the button while scrolling or resizing
+    window.addEventListener('scroll', () => { if (openFilterType) placeFilterDropdown(openFilterType); }, { passive: true });
+    window.addEventListener('resize', () => { if (openFilterType) placeFilterDropdown(openFilterType); });
 
     function closeFilterModalOnBackdrop(e, type) {
       if (e.target.classList.contains('filter-modal-backdrop')) {

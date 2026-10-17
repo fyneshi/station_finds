@@ -89,8 +89,8 @@ $csrf = sf_csrf_token();
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/cart.css?v=4" />
-  <link rel="stylesheet" href="css/profile.css?v=2" />
+  <link rel="stylesheet" href="css/cart.css?v=5" />
+  <link rel="stylesheet" href="css/profile.css?v=3" />
 </head>
 <body>
 
@@ -169,7 +169,7 @@ $csrf = sf_csrf_token();
         <?php foreach ($listings as $key => $l): ?>
         <a href="<?php echo $detailPages[$l['type']] ?? 'marketplace.php'; ?>?id=<?php echo $e($key); ?>" class="pf-listing">
           <img src="<?php echo $e($l['image']); ?>" alt="" class="<?php echo $l['image'] === SF_PLACEHOLDER_IMAGE ? 'placeholder' : ''; ?>" />
-          <span class="pf-listing-type"><?php echo strtoupper(rtrim($l['type'], 's')); ?></span>
+          <span class="pf-listing-type"><?php echo strtoupper(rtrim($l['type'], 's')); ?><?php if ($stock = sf_stock_status($l)): ?> &middot; <span class="pf-stock-<?php echo $stock[0]; ?>"><?php echo $e(mb_strtoupper($stock[1])); ?></span><?php endif; ?></span>
           <strong><?php echo $e($l['title']); ?></strong>
           <span class="pf-listing-price"><?php echo sf_price_html($l); ?></span>
         </a>
@@ -207,7 +207,7 @@ $csrf = sf_csrf_token();
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
   <script>
     function toggleReport(btn) {

@@ -81,3 +81,8 @@
 
 /* Online dot on the big profile picture */
 .pf-presence .online-dot { right: 6px; bottom: 6px; width: 20px; height: 20px; max-width: none; max-height: none; box-shadow: 0 0 0 3px #fff; }
+
+/* Stock (products) */
+.pf-stock-in  { color: #047857; }
+.pf-stock-low { color: #b45309; }
+.pf-stock-out { color: #b91c1c; }

@@ -7,7 +7,8 @@
  *   ?step=done&order=SF-XXXX   Confirmation
  *
  * Form data is kept in $_SESSION['checkout'] until the order is placed.
- * Totals are always recalculated on the server from the cart.
+ * Totals are always recalculated on the server from the cart, or, after "Buy now" on a
+ * listing, from just that one item ($_SESSION['buy_now']); the cart is then left alone.
  */
 session_start();
 
@@ -53,13 +54,22 @@ if ($step === 'done') {
     }
 }
 
-// ── Everything else needs a non-empty cart ──────────────────────
-$items  = sf_cart_items($conn, $userId);
+// ── Everything else needs something to buy: the cart, or the "Buy now" item ──
+if (($_GET['from'] ?? '') === 'cart') unset($_SESSION['buy_now']);   // "Proceed to checkout" in the cart
+$buyNow = !empty($_SESSION['buy_now']);
+$items  = $buyNow ? sf_buy_now_items($userId) : sf_cart_items($conn, $userId);
+if ($buyNow && !$items && $step !== 'done') {
+    unset($_SESSION['buy_now']);   // that listing isn't for sale any more
+    header('Location: cart.php');
+    exit;
+}
 $totals = sf_cart_totals($items, $_SESSION['promo_code'] ?? '');
 if ($step !== 'done' && !$items) {
     header('Location: cart.php');
     exit;
 }
+// Something sold out or the quantity is above what's left: the order can't be placed until it's fixed
+$stockProblem = $step === 'done' ? '' : sf_stock_problems($items);
 
 // ── Form submissions ────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -109,6 +119,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $conn->begin_transaction();
             try {
+                if ($stockProblem !== '') throw new SfStockException($stockProblem);
+                // First take the items out of stock: throws if someone else got the last ones,
+                // and the rollback below then undoes everything (including the stock already taken)
+                sf_reserve_stock($conn, $items);
+
                 $orderNo = 'SF-' . date('ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
                 $promo   = $totals['promo_code'];
                 $status  = $checkout['payment'] === 'cod' ? 'pending' : 'awaiting_payment';
@@ -126,22 +141,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->close();
 
                 $stmt = $conn->prepare(
-                    "INSERT INTO order_items (order_id, item_key, item_type, title, seller, unit_price, units, quantity, line_total)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                    "INSERT INTO order_items (order_id, item_key, item_type, title, seller, unit_price, units, quantity, line_total, stock_deducted)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                 );
                 foreach ($items as $it) {
-                    $stmt->bind_param("issssdiid", $orderId, $it['key'], $it['type'], $it['title'], $it['seller'],
-                        $it['price'], $it['units'], $it['quantity'], $it['line_total']);
+                    $deducted = $it['type'] === 'products' ? 1 : 0;   // taken from stock above, given back if it's cancelled
+                    $stmt->bind_param("issssdiidi", $orderId, $it['key'], $it['type'], $it['title'], $it['seller'],
+                        $it['price'], $it['units'], $it['quantity'], $it['line_total'], $deducted);
                     $stmt->execute();
                 }
                 $stmt->close();
 
-                $stmt = $conn->prepare("DELETE FROM cart_items WHERE user_id = ?");
-                $stmt->bind_param("i", $userId);
-                $stmt->execute();
-                $stmt->close();
+                // Checking out the cart empties it; "Buy now" leaves the cart alone
+                if (!$buyNow) {
+                    $stmt = $conn->prepare("DELETE FROM cart_items WHERE user_id = ?");
+                    $stmt->bind_param("i", $userId);
+                    $stmt->execute();
+                    $stmt->close();
+                }
 
                 $conn->commit();
+            } catch (SfStockException $ex) {
+                $conn->rollback();
+                $errors['form'] = $ex->getMessage();
+                $step = '3';
             } catch (Throwable $ex) {
                 $conn->rollback();
                 $errors['form'] = 'We could not place your order. Please try again.';
@@ -160,9 +183,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         sf_notify($conn, $it['seller_id'], 'order', 'New order received',
                             $d['full_name'] . ' ordered ' . $it['title'] . ' (' . sf_term_label($it) . ', ' . sf_peso($it['line_total'])
                             . ') in order #' . $orderNo . '. Update it from your Seller Dashboard.', 'account.php?tab=seller');
+                        if ($it['type'] === 'products') {
+                            $left = sf_listing_stock($conn, (int) substr($it['key'], 8));
+                            if ($left === 0) {
+                                sf_notify($conn, $it['seller_id'], 'order', 'Sold out',
+                                    $it['title'] . ' is out of stock, so buyers can\'t order it. Add more stock from your Seller Dashboard.', 'account.php?tab=seller');
+                            } elseif ($left <= SF_LOW_STOCK && $it['stock'] > SF_LOW_STOCK) {
+                                sf_notify($conn, $it['seller_id'], 'order', 'Low stock',
+                                    'Only ' . $left . ' of ' . $it['title'] . ' ' . ($left === 1 ? 'is' : 'are') . ' left. Restock it from your Seller Dashboard.', 'account.php?tab=seller');
+                            }
+                        }
                     }
                 }
-                unset($_SESSION['checkout'], $_SESSION['promo_code']);
+                unset($_SESSION['checkout'], $_SESSION['buy_now']);
+                if (!$buyNow) unset($_SESSION['promo_code']);   // a code applied in the cart stays for the cart
                 go('done', '&order=' . urlencode($orderNo));
             }
         }
@@ -213,7 +247,7 @@ function field($name, $label, $delivery, $errors, $opts = []) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/cart.css?v=4" />
+  <link rel="stylesheet" href="css/cart.css?v=5" />
 </head>
 <body>
 
@@ -263,7 +297,8 @@ function field($name, $label, $delivery, $errors, $opts = []) {
 
     <div class="shop-grid">
       <div>
-        <?php if (!empty($errors['form'])): ?><div class="alert-error"><?php echo $e($errors['form']); ?></div><?php endif; ?>
+        <?php if (!empty($errors['form'])): ?><div class="alert-error"><?php echo $e($errors['form']); ?></div>
+        <?php elseif ($stockProblem !== ''): ?><div class="alert-error"><?php echo $e($stockProblem); ?> <a href="<?php echo $buyNow ? $e($items[0]['link']) : 'cart.php'; ?>"><?php echo $buyNow ? 'Back to the listing' : 'Go to your cart'; ?></a></div><?php endif; ?>
 
         <?php if ($step === 1): ?>
         <!-- ==================== STEP 1: DELIVERY ==================== -->
@@ -338,7 +373,7 @@ function field($name, $label, $delivery, $errors, $opts = []) {
           </div>
 
           <div class="review-block">
-            <div class="review-label">Items to purchase <a href="cart.php">Edit cart</a></div>
+            <div class="review-label"><?php if ($buyNow): ?>Buying just this item <a href="cart.php">Go to cart instead</a><?php else: ?>Items to purchase <a href="cart.php">Edit cart</a><?php endif; ?></div>
             <div class="review-items">
               <?php foreach ($items as $it): ?>
               <div class="review-item">
@@ -346,6 +381,7 @@ function field($name, $label, $delivery, $errors, $opts = []) {
                 <div>
                   <div class="review-item-title"><?php echo $e($it['title']); ?></div>
                   <div class="review-item-note"><?php echo $e(sf_price_note($it)); ?></div>
+                  <?php if ($it['stock_problem'] !== ''): ?><div class="review-item-note stock-warn"><?php echo $e($it['stock_problem']); ?></div><?php endif; ?>
                 </div>
               </div>
               <?php endforeach; ?>
@@ -366,7 +402,7 @@ function field($name, $label, $delivery, $errors, $opts = []) {
           <?php
             $btnText = [1 => 'Continue to Payment', 2 => 'Continue to Review', 3 => 'Place Order (' . sf_peso($totals['total']) . ')'];
           ?>
-          <button type="submit" form="checkoutForm" class="btn-primary" id="checkoutSubmit"><?php echo $btnText[$step]; ?></button>
+          <button type="submit" form="checkoutForm" class="btn-primary" id="checkoutSubmit"<?php echo $step === 3 && $stockProblem !== '' ? ' disabled' : ''; ?>><?php echo $btnText[$step]; ?></button>
         </div>
         <?php if ($step === 3): ?>
         <div class="secure-note">
@@ -382,7 +418,7 @@ function field($name, $label, $delivery, $errors, $opts = []) {
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
   <script>
     // Prevent double-submitting (e.g. placing the same order twice)

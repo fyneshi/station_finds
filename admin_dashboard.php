@@ -21,9 +21,8 @@ $m = $conn->query("SELECT
     (SELECT COUNT(*) FROM users WHERE role <> 'admin' AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')) AS users_month,
     (SELECT COUNT(*) FROM listings WHERE status = 'active') AS listings,
     (SELECT COUNT(*) FROM listings WHERE created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')) AS listings_month,
-    (SELECT COALESCE(SUM(total), 0) FROM orders WHERE created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')) AS sales_month,
-    (SELECT COALESCE(SUM(total), 0) FROM orders WHERE created_at >= DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y-%m-01')
-                                                  AND created_at <  DATE_FORMAT(CURDATE(), '%Y-%m-01')) AS sales_last,
+    " . sf_net_sales_sql("o.created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')") . " AS sales_month,
+    " . sf_net_sales_sql("o.created_at >= DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y-%m-01') AND o.created_at < DATE_FORMAT(CURDATE(), '%Y-%m-01')") . " AS sales_last,
     (SELECT COUNT(*) FROM orders WHERE created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')) AS orders_month,
     (SELECT COUNT(*) FROM seller_profiles s JOIN users u ON u.id = s.user_id WHERE u.status = 'active') AS sellers,
     (SELECT COALESCE(AVG(price), 0) FROM listings WHERE status = 'active') AS avg_price")->fetch_assoc();
@@ -88,7 +87,7 @@ $typeLabels = ['products' => 'Product', 'rentals' => 'Rental', 'services' => 'Se
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="CSS/admin.css?v=22" />
+  <link rel="stylesheet" href="CSS/admin.css?v=23" />
   <link rel="stylesheet" href="CSS/admin-shell.css?v=2" />
 </head>
 <body>

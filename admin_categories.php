@@ -167,7 +167,7 @@ $folder = '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="CSS/admin.css?v=22" />
+  <link rel="stylesheet" href="CSS/admin.css?v=23" />
   <link rel="stylesheet" href="CSS/admin-shell.css?v=2" />
 </head>
 <body>

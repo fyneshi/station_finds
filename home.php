@@ -34,7 +34,7 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/home.css?v=4" />
+  <link rel="stylesheet" href="css/home.css?v=5" />
   <script>
     // Home animations (js/home-motion.js): hide cards only when they'll be animated in.
     // If that script doesn't run, everything is shown after a moment anyway.
@@ -214,6 +214,7 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
               <div class="card-badges">
                 <span class="badge badge-<?php echo ['products' => 'product', 'rentals' => 'rental', 'services' => 'service'][$pick['type']]; ?>"><?php echo ['products' => 'PRODUCT', 'rentals' => 'RENTAL', 'services' => 'SERVICE'][$pick['type']]; ?></span>
                 <span class="badge badge-condition"><?php echo $e(mb_strtoupper($pick['term'])); ?></span>
+                <?php if ($stock = sf_stock_status($pick)): ?><span class="badge badge-stock-<?php echo $stock[0]; ?>"><?php echo $e(mb_strtoupper($stock[1])); ?></span><?php endif; ?>
               </div>
               <h3 class="card-product-title"><?php echo $e($pick['title']); ?></h3>
               <div class="card-footer-info">
@@ -340,7 +341,7 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
 
   <!-- Favorite hearts (saved to the database, shared with Marketplace / Search / Favorites) -->
   <script src="js/favorites.js?v=2"></script>
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
   <script src="js/home-motion.js?v=2"></script>
   <script>

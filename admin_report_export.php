@@ -68,11 +68,13 @@ if ($type === 'users') {
     }
 } elseif ($type === 'transactions') {
     $methods = sf_payment_methods();
-    $rows[] = ['Order', 'Placed', 'Buyer', 'Email', 'Payment', 'Items', 'Subtotal', 'Discount', 'Shipping', 'Tax', 'Total', 'Status', 'Open disputes', 'Refunded items'];
+    $rows[] = ['Order', 'Placed', 'Buyer', 'Email', 'Payment', 'Items', 'Subtotal', 'Discount', 'Shipping', 'Tax', 'Total', 'Status', 'Open disputes', 'Refunded items', 'Cancelled items', 'Cancel reasons'];
     $res = $conn->query("SELECT o.*, u.email,
                                 (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS items,
                                 (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id AND oi.dispute_status = 'open') AS disputes,
-                                (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id AND oi.fulfillment = 'refunded') AS refunded
+                                (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id AND oi.fulfillment = 'refunded') AS refunded,
+                                (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id AND oi.fulfillment = 'cancelled') AS cancelled,
+                                (SELECT GROUP_CONCAT(DISTINCT oi.cancel_reason SEPARATOR '; ') FROM order_items oi WHERE oi.order_id = o.id AND oi.fulfillment = 'cancelled') AS cancel_reasons
                          FROM orders o JOIN users u ON u.id = o.user_id
                          WHERE " . period_sql('o.created_at', $period) . " ORDER BY o.created_at DESC");
     $items = [];
@@ -80,10 +82,12 @@ if ($type === 'users') {
     while ($i = $ir->fetch_assoc()) $items[$i['order_id']][] = $i;
     while ($r = $res->fetch_assoc()) {
         $mine = $items[$r['id']] ?? [];
-        $done = array_filter($mine, fn($i) => $i['fulfillment'] === 'refunded' || sf_fulfillment_is_final($i['item_type'], $i['fulfillment']));
-        $status = $r['disputes'] > 0 ? 'Disputed' : ($mine && count($done) === count($mine) ? 'Completed' : 'Processing');
+        $done = array_filter($mine, fn($i) => sf_item_closed($i['fulfillment']) || sf_fulfillment_is_final($i['item_type'], $i['fulfillment']));
+        $status = $r['disputes'] > 0 ? 'Disputed' : ($mine && (int) $r['cancelled'] === count($mine) ? 'Cancelled'
+                 : ($mine && count($done) === count($mine) ? 'Completed' : 'Processing'));
         $rows[] = [$r['order_no'], $r['created_at'], $r['full_name'], $r['email'], $methods[$r['payment_method']]['label'] ?? $r['payment_method'],
-                   $r['items'], $r['subtotal'], $r['discount'], $r['shipping'], $r['tax'], $r['total'], $status, $r['disputes'], $r['refunded']];
+                   $r['items'], $r['subtotal'], $r['discount'], $r['shipping'], $r['tax'], $r['total'], $status, $r['disputes'], $r['refunded'],
+                   $r['cancelled'], $r['cancel_reasons'] ?? ''];
     }
 } else {
     $m = $conn->query("SELECT
@@ -95,8 +99,10 @@ if ($type === 'users') {
         (SELECT COUNT(*) FROM listings WHERE status = 'active') AS live_listings,
         (SELECT COUNT(*) FROM listings WHERE status = 'flagged') AS flagged_listings,
         (SELECT COUNT(*) FROM orders WHERE " . period_sql('created_at', $period) . ") AS orders,
-        (SELECT COALESCE(SUM(total), 0) FROM orders WHERE " . period_sql('created_at', $period) . ") AS sales,
+        " . sf_net_sales_sql(period_sql('o.created_at', $period)) . " AS sales,
         (SELECT COUNT(*) FROM order_items WHERE dispute_status = 'open') AS disputes,
+        (SELECT COUNT(*) FROM order_items WHERE fulfillment = 'cancelled' AND " . period_sql('cancelled_at', $period) . ") AS cancelled,
+        (SELECT COALESCE(SUM(line_total), 0) FROM order_items WHERE fulfillment = 'cancelled' AND " . period_sql('cancelled_at', $period) . ") AS cancelled_value,
         (SELECT COALESCE(SUM(amount), 0) FROM payout_requests WHERE status = 'paid' AND " . period_sql('processed_at', $period) . ") AS paid_out,
         (SELECT COUNT(*) FROM reports WHERE status IN ('open', 'escalated')) AS open_reports,
         (SELECT ROUND(AVG(rating), 1) FROM feedback WHERE rating IS NOT NULL AND status NOT IN ('flagged', 'dismissed')) AS avg_rating")->fetch_assoc();
@@ -104,7 +110,8 @@ if ($type === 'users') {
         ['Period', $periods[$period]],
         ['New users in period', $m['new_users']], ['Total users', $m['users']], ['Suspended users', $m['suspended']],
         ['Approved sellers', $m['sellers']], ['New listings in period', $m['new_listings']], ['Live listings', $m['live_listings']],
-        ['Flagged listings', $m['flagged_listings']], ['Orders in period', $m['orders']], ['Sales in period (PHP)', $m['sales']],
+        ['Flagged listings', $m['flagged_listings']], ['Orders in period', $m['orders']], ['Sales in period, after cancellations and refunds (PHP)', $m['sales']],
+        ['Items cancelled by buyers in period', $m['cancelled']], ['Value of cancelled items in period (PHP)', $m['cancelled_value']],
         ['Open disputes', $m['disputes']], ['Paid out to sellers in period (PHP)', $m['paid_out']],
         ['Open reports', $m['open_reports']], ['Average rating', $m['avg_rating'] ?? '']];
 }

@@ -49,7 +49,7 @@ $typeIcons = [
 ];
 $units  = ['hr' => 'per hour', 'session' => 'per session', 'slide' => 'per slide', 'shoot' => 'per shoot', 'job' => 'per job', 'order' => 'per order'];
 $errors = [];
-$v      = $listing ?? ['type' => $_GET['type'] ?? 'products', 'title' => '', 'category' => '', 'term' => '', 'price' => '',
+$v      = $listing ?? ['type' => $_GET['type'] ?? 'products', 'title' => '', 'category' => '', 'term' => '', 'price' => '', 'stock' => '1',
                        'unit' => '', 'description' => '', 'location' => '', 'image' => '', 'photos' => null];
 if (!isset($types[$v['type']])) $v['type'] = 'products';
 $photos = sf_listing_photos($v);    // photos already saved on this listing, cover first
@@ -77,6 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'category'    => (string) ($_POST['category_' . $type] ?? ''),
             'term'        => $type === 'services' ? '' : (string) ($_POST['condition'] ?? ''),
             'price'       => str_replace([',', ' '], '', trim((string) ($_POST['price'] ?? ''))),
+            // How many are for sale (products only; rentals and services aren't counted)
+            'stock'       => $type === 'products' ? str_replace([',', ' '], '', trim((string) ($_POST['stock'] ?? ''))) : '0',
             'unit'        => $type === 'rentals' ? 'day' : ($type === 'services' ? (string) ($_POST['unit'] ?? '') : ''),
             'description' => trim(str_replace("\r\n", "\n", (string) ($_POST['description'] ?? ''))),
             'location'    => trim(preg_replace('/\s+/', ' ', (string) ($_POST['location'] ?? ''))),
@@ -93,6 +95,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($type !== 'services' && !isset(SF_CONDITIONS[$v['term']])) $errors['condition'] = 'Please choose the condition.';
         if ($type === 'services' && !isset($units[$v['unit']])) $errors['unit'] = 'Please choose how you charge.';
         if (!preg_match('/^\d{1,7}(\.\d{1,2})?$/', $v['price']) || (float) $v['price'] < 1) $errors['price'] = 'Enter a price from ₱1 to ₱9,999,999.';
+        if ($type === 'products' && (!ctype_digit($v['stock']) || (int) $v['stock'] > SF_MAX_STOCK)) {
+            $errors['stock'] = 'Enter how many you have, from 0 to ' . number_format(SF_MAX_STOCK) . '.';
+        }
         if (mb_strlen($v['location']) > 120) $errors['location'] = 'Please keep the location under 120 characters.';
         if (mb_strlen($v['description']) > 1000) $errors['description'] = 'Please keep the description under 1,000 characters.';
 
@@ -124,15 +129,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $photosJson = json_encode($kept);
 
             if ($listing) {
-                $stmt = $conn->prepare("UPDATE listings SET type = ?, title = ?, category = ?, term = ?, price = ?, unit = ?, description = ?,
+                $stmt = $conn->prepare("UPDATE listings SET type = ?, title = ?, category = ?, term = ?, price = ?, stock = ?, unit = ?, description = ?,
                                                location = ?, image = ?, photos = ?, status = ?
                                         WHERE id = ? AND seller_id = ?");
-                $stmt->bind_param("ssssdssssssii", $v['type'], $v['title'], $v['category'], $v['term'], $v['price'], $v['unit'],
+                $stock = (int) $v['stock'];
+                $stmt->bind_param("ssssdissssssii", $v['type'], $v['title'], $v['category'], $v['term'], $v['price'], $stock, $v['unit'],
                     $v['description'], $v['location'], $cover, $photosJson, $status, $listing['id'], $userId);
             } else {
-                $stmt = $conn->prepare("INSERT INTO listings (seller_id, type, title, category, term, price, unit, description, location, image, photos, status)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("issssdssssss", $userId, $v['type'], $v['title'], $v['category'], $v['term'], $v['price'], $v['unit'],
+                $stmt = $conn->prepare("INSERT INTO listings (seller_id, type, title, category, term, price, stock, unit, description, location, image, photos, status)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stock = (int) $v['stock'];
+                $stmt->bind_param("issssdissssss",$userId, $v['type'], $v['title'], $v['category'], $v['term'], $v['price'], $stock, $v['unit'],
                     $v['description'], $v['location'], $cover, $photosJson, $status);
             }
             $stmt->execute();
@@ -171,8 +178,8 @@ $priceLabels = ['products' => 'Price (₱)', 'rentals' => 'Price per day (₱)',
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/cart.css?v=4" />
-  <link rel="stylesheet" href="css/account.css?v=19" />
+  <link rel="stylesheet" href="css/cart.css?v=5" />
+  <link rel="stylesheet" href="css/account.css?v=21" />
 </head>
 <body>
 
@@ -256,10 +263,18 @@ $priceLabels = ['products' => 'Price (₱)', 'rentals' => 'Price per day (₱)',
           </div>
         </div>
 
+        <div class="form-row-loc">
         <div class="form-field">
           <label class="form-label" for="location">Campus / Location</label>
           <input type="text" id="location" name="location" class="text-input<?php echo $bad('location'); ?>" value="<?php echo $e($v['location']); ?>" maxlength="120" placeholder="e.g. Katipunan Quezon City / Ateneo De Manila" autocomplete="off" />
           <?php echo $err('location'); ?>
+        </div>
+
+        <div class="form-field" data-show-for="products"<?php echo $v['type'] === 'products' ? '' : ' hidden'; ?>>
+          <label class="form-label" for="stock">Stock Quantity</label>
+          <input type="number" id="stock" name="stock" class="text-input<?php echo $bad('stock'); ?>" value="<?php echo $e($v['stock']); ?>" min="0" max="<?php echo SF_MAX_STOCK; ?>" step="1" inputmode="numeric" placeholder="e.g. 5" />
+          <?php if (isset($errors['stock'])): echo $err('stock'); else: ?><span class="field-hint">How many you can sell. Buyers can't order more than this; it goes down with each order.</span><?php endif; ?>
+        </div>
         </div>
 
         <div class="form-field">
@@ -310,7 +325,7 @@ $priceLabels = ['products' => 'Price (₱)', 'rentals' => 'Price per day (₱)',
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
   <script>
     const MAX_PHOTOS = <?php echo SF_MAX_PHOTOS; ?>;

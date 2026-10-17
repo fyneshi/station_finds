@@ -27,6 +27,7 @@ $kindIcons = [
     'dispute'  => $menu['transactions'][2],
     'payout'   => $menu['payouts'][2],
     'category' => $menu['categories'][2],
+    'promo'    => $menu['promos'][2],
     'export'   => $menu['reports'][2],
 ];
 $pulse = '<path d="M2 12h5l3-9 4 18 3-9h5"/>';
@@ -81,7 +82,7 @@ function log_when($ts) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="CSS/admin.css?v=22" />
+  <link rel="stylesheet" href="CSS/admin.css?v=23" />
   <link rel="stylesheet" href="CSS/admin-shell.css?v=2" />
 </head>
 <body>

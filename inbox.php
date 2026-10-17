@@ -105,7 +105,7 @@ function sf_other_users($conn, $userId) {
 
 // One row per chat partner: last message, its time, and how many are unread
 function sf_conversations($conn, $userId) {
-    $sql = "SELECT u.id, u.username, u.role, u.status, u.avatar, UNIX_TIMESTAMP(u.last_seen_at) AS last_seen, u.show_online, IF(m.unsent_at IS NULL, m.body, '') AS last_body, m.unsent_at IS NOT NULL AS last_unsent, m.sender_id AS last_sender,
+    $sql = "SELECT u.id, u.username, u.role, u.status, u.avatar, UNIX_TIMESTAMP(u.last_seen_at) AS last_seen, u.show_online, IF(m.unsent_at IS NULL, m.body, '') AS last_body, m.unsent_at IS NOT NULL AS last_unsent, m.attachment <> '' AS last_photo, m.sender_id AS last_sender,
                    UNIX_TIMESTAMP(m.created_at) AS ts,
                    (SELECT COUNT(*) FROM messages x
                      WHERE x.sender_id = u.id AND x.receiver_id = ? AND x.read_at IS NULL) AS unread
@@ -126,7 +126,7 @@ function sf_conversations($conn, $userId) {
 // Messages between two users, oldest first (only those after $afterId when given)
 function sf_thread($conn, $userId, $otherId, $afterId = 0, $limit = 200) {
     $stmt = $conn->prepare("SELECT * FROM (
-                                SELECT m.id, m.sender_id, m.body, m.reply_to, m.unsent_at IS NOT NULL AS unsent, UNIX_TIMESTAMP(m.created_at) AS ts
+                                SELECT m.id, m.sender_id, m.body, m.attachment, m.reply_to, m.unsent_at IS NOT NULL AS unsent, UNIX_TIMESTAMP(m.created_at) AS ts
                                 FROM messages m
                                 WHERE ((m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?)) AND m.id > ?
                                   AND NOT EXISTS (SELECT 1 FROM message_hidden h WHERE h.message_id = m.id AND h.user_id = ?)
@@ -137,6 +137,39 @@ function sf_thread($conn, $userId, $otherId, $afterId = 0, $limit = 200) {
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
     return $rows;
+}
+
+// ── Photos in chats (messages.php) ──────────────────────────────
+// Payment screenshots and the like can show names and numbers, so they're kept in private/
+// (closed to the web) and opened only through message_file.php by the two people in the chat.
+const SF_CHAT_DIR       = 'private/chat';
+const SF_CHAT_MAX_BYTES = 5 * 1024 * 1024;   // 5 MB
+
+// Saves an uploaded photo. Returns [saved path, null] or [null, error message].
+function sf_save_chat_photo(array $file) {
+    if ($file['error'] === UPLOAD_ERR_INI_SIZE || $file['error'] === UPLOAD_ERR_FORM_SIZE
+        || $file['size'] > SF_CHAT_MAX_BYTES) return [null, 'That photo is over 5 MB.'];
+    if ($file['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) return [null, 'The photo could not be uploaded. Please try again.'];
+    $info = @getimagesize($file['tmp_name']);
+    $exts = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+    if (!$info || !isset($exts[$info['mime']])) return [null, 'Send a JPG, PNG or WebP photo.'];
+    $dir = __DIR__ . '/' . SF_CHAT_DIR;
+    if (!is_dir($dir) && !mkdir($dir, 0755, true)) return [null, 'The photo could not be saved. Please try again.'];
+    $name = bin2hex(random_bytes(12)) . '.' . $exts[$info['mime']];
+    if (!move_uploaded_file($file['tmp_name'], $dir . '/' . $name)) return [null, 'The photo could not be saved. Please try again.'];
+    return [SF_CHAT_DIR . '/' . $name, null];
+}
+
+// Full path of a saved chat photo, or null if the stored value isn't one of ours
+function sf_chat_photo_path($path) {
+    if (!preg_match('#^' . preg_quote(SF_CHAT_DIR, '#') . '/[a-f0-9]{24}\.(jpg|png|webp)$#', (string) $path)) return null;
+    $full = __DIR__ . '/' . $path;
+    return is_file($full) ? $full : null;
+}
+
+function sf_delete_chat_photo($path) {
+    $full = sf_chat_photo_path($path);
+    if ($full) @unlink($full);
 }
 
 // ── Reactions, replies, unsend, remove for you (messages.php) ────
@@ -173,7 +206,7 @@ function sf_message_payloads($conn, $userId, array $rows, $partnerName) {
     $replyIds  = array_filter(array_column($rows, 'reply_to'));
     $quotes    = [];
     if ($replyIds) {
-        $res = $conn->query("SELECT id, sender_id, body, unsent_at IS NOT NULL AS unsent FROM messages WHERE id IN (" . implode(',', array_map('intval', $replyIds)) . ")");
+        $res = $conn->query("SELECT id, sender_id, body, attachment, unsent_at IS NOT NULL AS unsent FROM messages WHERE id IN (" . implode(',', array_map('intval', $replyIds)) . ")");
         while ($res && $q = $res->fetch_assoc()) $quotes[(int) $q['id']] = $q;
     }
     $reactions = sf_message_reactions($conn, $userId, array_column($rows, 'id'));
@@ -182,7 +215,7 @@ function sf_message_payloads($conn, $userId, array $rows, $partnerName) {
         if ($m['reply_to'] && isset($quotes[(int) $m['reply_to']])) {
             $q = $quotes[(int) $m['reply_to']];
             $quote = ['id' => (int) $q['id'], 'author' => (int) $q['sender_id'] === $userId ? 'You' : $partnerName,
-                      'text' => $q['unsent'] ? 'Message unsent' : sf_excerpt($q['body'], 80), 'unsent' => (bool) $q['unsent']];
+                      'text' => $q['unsent'] ? 'Message unsent' : ($q['body'] !== '' ? sf_excerpt($q['body'], 80) : '📷 Photo'), 'unsent' => (bool) $q['unsent']];
         }
         return [
             'id'        => (int) $m['id'],
@@ -191,6 +224,8 @@ function sf_message_payloads($conn, $userId, array $rows, $partnerName) {
             'unsent'    => (bool) $m['unsent'],
             'time'      => sf_message_time($m['ts']),
             'reply'     => $quote,
+            // Only the two people in the chat can open it (message_file.php checks)
+            'photo'     => !$m['unsent'] && ($m['attachment'] ?? '') !== '' ? 'message_file.php?id=' . (int) $m['id'] : null,
             'reactions' => $m['unsent'] ? [] : ($reactions[(int) $m['id']] ?? []),
         ];
     }, $rows);

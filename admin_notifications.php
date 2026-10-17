@@ -59,7 +59,7 @@ $groups = [
     'earlier' => ['Earlier', array_values(array_filter($events, fn($ev) => $ev['ts'] < $today))],
 ];
 $unread  = count(array_filter($events, fn($ev) => $ev['unread']));
-$filters = ['all' => 'All', 'unread' => 'Unread', 'seller' => 'Seller Apps', 'moderation' => 'Moderation', 'disputes' => 'Disputes', 'payouts' => 'Payouts', 'users' => 'New users'];
+$filters = ['all' => 'All', 'unread' => 'Unread', 'seller' => 'Seller Apps', 'moderation' => 'Moderation', 'disputes' => 'Disputes', 'cancelled' => 'Cancelled', 'payouts' => 'Payouts', 'users' => 'New users'];
 $csrf    = sf_csrf_token();
 ?>
 <!DOCTYPE html>
@@ -71,7 +71,7 @@ $csrf    = sf_csrf_token();
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="CSS/admin.css?v=22" />
+  <link rel="stylesheet" href="CSS/admin.css?v=23" />
   <link rel="stylesheet" href="CSS/admin-shell.css?v=2" />
 </head>
 <body>

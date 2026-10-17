@@ -56,7 +56,7 @@ $when      = fn($ts) => date('M j, Y', $ts);
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/detail.css?v=11" />
+  <link rel="stylesheet" href="css/detail.css?v=12" />
 </head>
 <body>
 
@@ -415,7 +415,7 @@ $when      = fn($ts) => date('M j, Y', $ts);
     </form>
   </dialog>
 
-  <script src="js/cart.js?v=2"></script>
+  <script src="js/cart.js?v=4"></script>
   <script src="js/inbox.js?v=2"></script>
   <script>
     const ITEM_ID = <?php echo json_encode($item['id']); ?>;
@@ -501,7 +501,7 @@ $when      = fn($ts) => date('M j, Y', $ts);
       const btn = document.getElementById('rentSubmit');
       btn.disabled = true;
       try {
-        await SFCart.add(ITEM_ID, 1, days);
+        await SFCart.buyNow(ITEM_ID, 1, days);   // just this rental, the cart is left alone
         const text = 'Rental request: ' + ITEM_TITLE + '\n'
           + 'Dates: ' + longDate(start.value) + ' to ' + longDate(document.getElementById('rentEnd').value) + ' (' + days + (days === 1 ? ' day' : ' days') + ')\n'
           + option + ' · Estimated total ' + peso(DAILY_RATE * days)

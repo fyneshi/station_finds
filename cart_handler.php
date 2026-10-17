@@ -5,6 +5,7 @@
  * Actions:
  *   - count:         number of items in the cart (for the navbar badge)
  *   - add:           { id, qty, units }  add a catalog item (units = days / hours)
+ *   - buy_now:       { id, qty, units }  check out just this item next (the cart is left alone)
  *   - update:        { key, qty }        change quantity
  *   - remove:        { key }             remove a line
  *   - apply_promo:   { code }            apply a promo code
@@ -54,20 +55,44 @@ function respond($conn, $userId, $extra = []) {
 
     $lines = [];
     foreach ($items as $item) {
-        $lines[$item['key']] = ['quantity' => $item['quantity'], 'line_total' => sf_peso($item['line_total'])];
+        $lines[$item['key']] = ['quantity' => $item['quantity'], 'line_total' => sf_peso($item['line_total']),
+                               'max_qty' => $item['max_qty'], 'stock_problem' => $item['stock_problem']];
     }
     echo json_encode(array_merge([
         'success' => true,
         'count'   => $totals['count'],
         'totals'  => sf_totals_display($totals),
         'lines'   => (object) $lines,
+        'stock_problem' => sf_stock_problems($items),   // checkout is blocked until this is ''
     ], $extra));
     exit;
 }
 
-function fail($message) {
-    echo json_encode(['success' => false, 'message' => $message]);
+function fail($message, $extra = []) {
+    echo json_encode(array_merge(['success' => false, 'message' => $message], $extra));
     exit;
+}
+
+// How many of this listing the user already has in the cart
+function in_cart($conn, $userId, $key) {
+    $stmt = $conn->prepare("SELECT quantity FROM cart_items WHERE user_id = ? AND item_key = ?");
+    $stmt->bind_param("is", $userId, $key);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $row ? (int) $row['quantity'] : 0;
+}
+
+// Stops products that are out of stock, or a quantity above what's left (checked again at checkout)
+function check_stock(array $item, $wanted, $alreadyInCart = 0) {
+    if ($item['type'] !== 'products') return;
+    $left = (int) $item['stock'];
+    if ($left <= 0) fail('Sorry, ' . $item['title'] . ' is out of stock.', ['stock' => 0]);
+    if ($alreadyInCart + $wanted > $left) {
+        $msg = 'Only ' . $left . ' ' . ($left === 1 ? 'is' : 'are') . ' left in stock';
+        if ($alreadyInCart > 0) $msg .= ', and you already have ' . $alreadyInCart . ' in your cart';
+        fail($msg . '.', ['stock' => $left]);
+    }
 }
 
 switch ($action) {
@@ -81,15 +106,20 @@ switch ($action) {
         if (!isset($catalog[$id])) fail('That listing is not available.');
         $item  = $catalog[$id];
         if ($item['seller_id'] === $userId) fail('This is your own listing.');
-        $qty   = max(1, min(SF_MAX_QTY, (int) ($input['qty'] ?? 1)));
+        $qty   = max(1, (int) ($input['qty'] ?? 1));
+        if ($qty > SF_MAX_QTY) fail('You can order up to ' . SF_MAX_QTY . ' at a time.');
         $units = (int) ($input['units'] ?? $item['units'][0]);
         if (!in_array($units, $item['units'], true)) fail('Please choose a valid duration.');
+        check_stock($item, $qty, in_cart($conn, $userId, $id));
+        if ($item['type'] === 'products' && in_cart($conn, $userId, $id) + $qty > SF_MAX_QTY) {
+            fail('You can order up to ' . SF_MAX_QTY . ' of one item at a time.');
+        }
 
         // Products: adding again increases the quantity.
         // Rentals / services: adding again updates the days / hours.
         $sql = $item['type'] === 'products'
             ? "INSERT INTO cart_items (user_id, item_key, quantity, units) VALUES (?, ?, ?, ?)
-               ON DUPLICATE KEY UPDATE quantity = LEAST(quantity + VALUES(quantity), " . SF_MAX_QTY . ")"
+               ON DUPLICATE KEY UPDATE quantity = LEAST(quantity + VALUES(quantity), " . sf_max_qty($item) . ")"
             : "INSERT INTO cart_items (user_id, item_key, quantity, units) VALUES (?, ?, ?, ?)
                ON DUPLICATE KEY UPDATE units = VALUES(units)";
         $stmt = $conn->prepare($sql);
@@ -97,6 +127,21 @@ switch ($action) {
         $stmt->execute();
         $stmt->close();
         respond($conn, $userId, ['message' => $item['title'] . ' added to your cart.']);
+        break;
+
+    case 'buy_now':
+        // Remembered for checkout.php, which then sells only this item
+        $id = (string) ($input['id'] ?? '');
+        if (!isset($catalog[$id])) fail('That listing is not available.');
+        $item = $catalog[$id];
+        if ($item['seller_id'] === $userId) fail('This is your own listing.');
+        $qty   = $item['type'] === 'products' ? max(1, (int) ($input['qty'] ?? 1)) : 1;
+        if ($qty > SF_MAX_QTY) fail('You can order up to ' . SF_MAX_QTY . ' at a time.');
+        $units = (int) ($input['units'] ?? $item['units'][0]);
+        if (!in_array($units, $item['units'], true)) fail('Please choose a valid duration.');
+        check_stock($item, $qty);
+        $_SESSION['buy_now'] = ['key' => $id, 'qty' => $qty, 'units' => $units];
+        echo json_encode(['success' => true, 'redirect' => 'checkout.php']);
         break;
 
     case 'update':
@@ -108,6 +153,8 @@ switch ($action) {
             $stmt->bind_param("is", $userId, $key);
         } else {
             $qty = min(SF_MAX_QTY, $qty);
+            // Lowering is always allowed (stock may have dropped below what's in the cart); raising must fit the stock
+            if ($qty > in_cart($conn, $userId, $key)) check_stock($catalog[$key], $qty);
             $stmt = $conn->prepare("UPDATE cart_items SET quantity = ? WHERE user_id = ? AND item_key = ?");
             $stmt->bind_param("iis", $qty, $userId, $key);
         }
@@ -126,12 +173,12 @@ switch ($action) {
         break;
 
     case 'apply_promo':
-        $code = strtoupper(trim((string) ($input['code'] ?? '')));
-        if ($code === '') fail('Please enter a code.');
-        if (!isset(sf_promo_codes()[$code])) fail('That code is not valid.');
         if (sf_cart_count($conn, $userId) === 0) fail('Your cart is empty.');
-        $_SESSION['promo_code'] = $code;
-        respond($conn, $userId, ['message' => sf_promo_codes()[$code]['label'] . ' applied.']);
+        $subtotal = array_sum(array_column(sf_cart_items($conn, $userId), 'line_total'));
+        [$promo, $why] = sf_promo_check($conn, $input['code'] ?? '', $userId, $subtotal);
+        if (!$promo) fail($why);
+        $_SESSION['promo_code'] = $promo['code'];
+        respond($conn, $userId, ['message' => $promo['code'] . ': ' . sf_promo_label($promo) . ' applied.']);
         break;
 
     case 'remove_promo':

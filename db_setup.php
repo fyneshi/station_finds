@@ -351,6 +351,23 @@ $sellerTables[] = "CREATE TABLE IF NOT EXISTS `message_hidden` (
     CONSTRAINT `fk_hidden_message` FOREIGN KEY (`message_id`) REFERENCES `messages`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
 
+// promo_codes: discount codes for the cart, managed in admin_promos.php (checked by sf_promo_check in shop.php).
+// type: percent (value = % off the items) | fixed (value = pesos off) | free_shipping
+$hadPromoTable = ($promoTable = $conn->query("SHOW TABLES LIKE 'promo_codes'")) && $promoTable->num_rows > 0;
+$sellerTables[] = "CREATE TABLE IF NOT EXISTS `promo_codes` (
+    `id`             INT AUTO_INCREMENT PRIMARY KEY,
+    `code`           VARCHAR(20)   NOT NULL,
+    `type`           VARCHAR(20)   NOT NULL DEFAULT 'percent',
+    `value`          DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `min_order`      DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `max_uses`       INT           NULL,
+    `once_per_user`  TINYINT(1)    NOT NULL DEFAULT 1,
+    `expires_on`     DATE          NULL,
+    `status`         VARCHAR(20)   NOT NULL DEFAULT 'active',
+    `created_at`     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uniq_code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+
 // feedback: everything users tell us, reviewed in admin_feedback.php.
 //   type 'platform' — Contact us form (contact.php)
 //   type 'buyer'    — a buyer rating a finished order; also the listing's public star rating
@@ -418,6 +435,20 @@ if (!$hadAdminLogs) {
         FROM reports WHERE resolved_at IS NOT NULL AND status IN ('resolved', 'dismissed')");
     $conn->query("INSERT INTO admin_logs (admin_id, admin_name, kind, action, target, badge, critical, created_at)
         SELECT admin_id, admin_name, 'export', 'Exported report', name, 'CSV', 0, created_at FROM report_exports");
+}
+
+// The two codes the cart always had become editable promo codes
+if (!$hadPromoTable) {
+    $conn->query("INSERT IGNORE INTO promo_codes (code, type, value, once_per_user) VALUES ('STUDENT10', 'percent', 10, 0), ('FREESHIP', 'free_shipping', 0, 0)");
+}
+
+// Orders made before cents were kept: subtotal and discount need them (e.g. 10% of ₱155 = ₱15.50)
+foreach (['subtotal', 'discount'] as $moneyColumn) {
+    $col = $conn->query("SHOW COLUMNS FROM `orders` LIKE '$moneyColumn'");
+    $col = $col ? $col->fetch_assoc() : null;
+    if ($col && stripos($col['Type'], 'decimal(10,0)') === 0) {
+        $conn->query("ALTER TABLE `orders` MODIFY `$moneyColumn` DECIMAL(10,2) NOT NULL DEFAULT 0");
+    }
 }
 
 // First run: start with the categories the site has always had
@@ -494,6 +525,18 @@ $addColumns = [
     // Messages: the message being replied to, and when the sender unsent it (body is then cleared)
     ['messages', 'reply_to',  "INT NULL DEFAULT NULL"],
     ['messages', 'unsent_at', "TIMESTAMP NULL DEFAULT NULL"],
+    // A photo sent in a chat (e.g. a payment screenshot), stored under private/chat (see inbox.php)
+    ['messages', 'attachment', "VARCHAR(80) NOT NULL DEFAULT ''"],
+    // Buyer cancelled an item before the seller started on it (fulfillment becomes 'cancelled')
+    ['order_items', 'cancel_reason', "VARCHAR(60) NOT NULL DEFAULT ''"],
+    ['order_items', 'cancelled_at',  "TIMESTAMP NULL DEFAULT NULL"],
+    // Stock management (products only): how many are left to sell. UNSIGNED, so it can never go below 0;
+    // checkout takes from it with a guarded UPDATE (shop.php › sf_reserve_stock). Products listed before
+    // stock existed start with 1; sellers set the real number from their dashboard.
+    ['listings',    'stock',          "INT UNSIGNED NOT NULL DEFAULT 1 AFTER `price`"],
+    // 1 while this order item holds stock taken at checkout; set back to 0 when a cancellation returns it,
+    // so stock is never taken or returned twice
+    ['order_items', 'stock_deducted', "TINYINT(1) NOT NULL DEFAULT 0"],
 ];
 foreach ($addColumns as [$table, $column, $definition]) {
     $check = $conn->query("SHOW COLUMNS FROM `$table` LIKE '$column'");

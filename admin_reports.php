@@ -47,7 +47,7 @@ $sales = [];
 for ($i = 6; $i >= 0; $i--) {
     $start = strtotime("today -$i days");
     $end   = strtotime('+1 day', $start);
-    $v = (float) $conn->query("SELECT COALESCE(SUM(total), 0) AS v FROM orders WHERE created_at >= FROM_UNIXTIME($start) AND created_at < FROM_UNIXTIME($end)")->fetch_assoc()['v'];
+    $v = (float) $conn->query("SELECT " . sf_net_sales_sql("o.created_at >= FROM_UNIXTIME($start) AND o.created_at < FROM_UNIXTIME($end)") . " AS v")->fetch_assoc()['v'];
     $sales[] = ['label' => date('D, M j', $start), 'value' => $v, 'text' => sf_peso($v)];
 }
 
@@ -55,7 +55,7 @@ $totals = $conn->query("SELECT
     (SELECT COUNT(*) FROM users WHERE role <> 'admin') AS users,
     (SELECT COUNT(*) FROM listings) AS listings,
     (SELECT COUNT(*) FROM listings WHERE status = 'flagged') AS flagged,
-    (SELECT COALESCE(SUM(total), 0) FROM orders) AS revenue,
+    " . sf_net_sales_sql() . " AS revenue,
     (SELECT COUNT(*) FROM order_items WHERE dispute_status = 'open') AS disputes")->fetch_assoc();
 $thisMonth = end($users)['value'];
 $lastMonth = $users[5]['value'];
@@ -93,7 +93,7 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="CSS/admin.css?v=22" />
+  <link rel="stylesheet" href="CSS/admin.css?v=23" />
   <link rel="stylesheet" href="CSS/admin-shell.css?v=2" />
 </head>
 <body>

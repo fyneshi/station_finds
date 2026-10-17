@@ -13,7 +13,9 @@ require_once __DIR__ . '/db_setup.php';
 
 const SF_SHIPPING_FEE = 120;    // flat fee per order
 const SF_TAX_RATE     = 0.06;   // "Platform Tax (6%)"
-const SF_MAX_QTY      = 10;
+const SF_MAX_QTY      = 10;     // most of one product per order (also capped by its stock)
+const SF_MAX_STOCK    = 9999;   // highest stock a seller can enter
+const SF_LOW_STOCK    = 3;      // at or below this, sellers see "Low stock" and buyers "Only N left"
 
 const SF_RENTAL_DAYS  = [1, 2, 3, 7, 14, 30];   // rental lengths a renter can pick
 const SF_PLACEHOLDER_IMAGE = 'assets/images/logo2.png';
@@ -108,6 +110,7 @@ function sf_seller_catalog() {
             'category'    => $row['category'],
             'condition'   => $row['term'],
             'price'       => (float) $row['price'],
+            'stock'       => $type === 'products' ? (int) $row['stock'] : null,   // rentals / services aren't counted
             'unit'        => $row['unit'],
             'image'       => $row['image'],
             'description' => $row['description'],
@@ -307,11 +310,46 @@ function sf_delete_avatar($path) {
 }
 
 // ── Promo codes ("Enter student code") ──────────────────────────
-function sf_promo_codes() {
-    return [
-        'STUDENT10' => ['label' => '10% student discount', 'percent' => 10],
-        'FREESHIP'  => ['label' => 'Free shipping',        'free_shipping' => true],
-    ];
+// ── Promo codes (managed in admin_promos.php) ───────────────────
+const SF_PROMO_TYPES = ['percent' => 'Percent off', 'fixed' => 'Amount off (₱)', 'free_shipping' => 'Free shipping'];
+
+// "10% off", "₱50 off", "Free shipping"
+function sf_promo_label(array $promo) {
+    if ($promo['type'] === 'free_shipping') return 'Free shipping';
+    if ($promo['type'] === 'fixed') return sf_peso($promo['value']) . ' off';
+    return rtrim(rtrim(number_format((float) $promo['value'], 2), '0'), '.') . '% off';
+}
+
+// Times a code has been used on orders (by everyone, or by one student)
+function sf_promo_uses($conn, $code, $userId = null) {
+    if ($userId === null) {
+        $stmt = $conn->prepare("SELECT COUNT(*) AS n FROM orders WHERE promo_code = ?");
+        $stmt->bind_param("s", $code);
+    } else {
+        $stmt = $conn->prepare("SELECT COUNT(*) AS n FROM orders WHERE promo_code = ? AND user_id = ?");
+        $stmt->bind_param("si", $code, $userId);
+    }
+    $stmt->execute();
+    $n = (int) $stmt->get_result()->fetch_assoc()['n'];
+    $stmt->close();
+    return $n;
+}
+
+// Can this student use this code on a cart of $subtotal? Returns [promo row, null] or [null, reason]
+function sf_promo_check($conn, $code, $userId, $subtotal) {
+    $code = strtoupper(trim((string) $code));
+    if ($code === '') return [null, 'Please enter a code.'];
+    $stmt = $conn->prepare("SELECT * FROM promo_codes WHERE code = ? AND status = 'active'");
+    $stmt->bind_param("s", $code);
+    $stmt->execute();
+    $promo = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$promo) return [null, 'That code is not valid.'];
+    if ($promo['expires_on'] !== null && $promo['expires_on'] < date('Y-m-d')) return [null, 'That code has expired.'];
+    if ($promo['max_uses'] !== null && sf_promo_uses($conn, $code) >= (int) $promo['max_uses']) return [null, 'That code has been fully used up.'];
+    if ($promo['once_per_user'] && sf_promo_uses($conn, $code, (int) $userId) > 0) return [null, 'You\'ve already used this code.'];
+    if ((float) $subtotal < (float) $promo['min_order']) return [null, 'This code needs an order of at least ' . sf_peso($promo['min_order']) . ' (before shipping and tax).'];
+    return [$promo, null];
 }
 
 function sf_peso($amount) {
@@ -360,15 +398,111 @@ function sf_cart_items($conn, $userId) {
         $item['units']      = (int) $row['units'];
         $item['line_total'] = $item['price'] * $item['units'] * $item['quantity'];
         $item['term_label'] = sf_term_label($item);
+        $item['max_qty']    = sf_max_qty($item);
+        $item['stock_problem'] = sf_stock_problem($item);
         $items[] = $item;
     }
     $stmt->close();
     return $items;
 }
 
+// "Buy now": the one item remembered for checkout (cart_handler.php › buy_now), in the same
+// shape as sf_cart_items(). Empty when there's none or it's no longer for sale.
+function sf_buy_now_items($userId) {
+    $pick = $_SESSION['buy_now'] ?? null;
+    if (!$pick) return [];
+    $catalog = sf_catalog();
+    if (!isset($catalog[$pick['key']]) || $catalog[$pick['key']]['seller_id'] === (int) $userId) return [];
+    $item = $catalog[$pick['key']];
+    $item['key']        = $pick['key'];
+    $item['quantity']   = (int) $pick['qty'];
+    $item['units']      = (int) $pick['units'];
+    $item['line_total'] = $item['price'] * $item['units'] * $item['quantity'];
+    $item['term_label'] = sf_term_label($item);
+    $item['max_qty']    = sf_max_qty($item);
+    $item['stock_problem'] = sf_stock_problem($item);
+    return [$item];
+}
+
 // Counts only items still for sale (a listing may have been unpublished or deleted)
 function sf_cart_count($conn, $userId) {
     return array_sum(array_column(sf_cart_items($conn, $userId), 'quantity'));
+}
+
+// ── Stock (products only; rentals and services aren't counted) ──
+// The checks here keep the pages honest; the real guard is sf_reserve_stock() at checkout,
+// because stock can change between adding to the cart and placing the order.
+
+// Thrown inside the checkout transaction when an item ran out; the message is shown to the buyer
+class SfStockException extends RuntimeException {}
+
+// Most of one listing a buyer can order at once: what's left, never more than SF_MAX_QTY
+function sf_max_qty(array $item) {
+    return $item['type'] === 'products' ? min(SF_MAX_QTY, max(0, (int) $item['stock'])) : SF_MAX_QTY;
+}
+
+// [css class, label] for the availability badge, or null for rentals / services
+function sf_stock_status(array $item) {
+    if ($item['type'] !== 'products') return null;
+    $left = (int) $item['stock'];
+    if ($left <= 0)            return ['out', 'Out of stock'];
+    if ($left <= SF_LOW_STOCK) return ['low', 'Only ' . $left . ' left'];
+    return ['in', 'In stock'];
+}
+
+// Why a cart / buy-now line can't be checked out as it is ('' when it can)
+function sf_stock_problem(array $item) {
+    if ($item['type'] !== 'products') return '';
+    $left = (int) $item['stock'];
+    if ($left <= 0) return $item['title'] . ' is out of stock. Remove it to continue.';
+    if ($item['quantity'] > $left) {
+        return 'Only ' . $left . ' of ' . $item['title'] . ' ' . ($left === 1 ? 'is' : 'are') . ' left. Lower the quantity to continue.';
+    }
+    return '';
+}
+
+// The first stock problem in a list of cart lines, or ''
+function sf_stock_problems(array $items) {
+    foreach ($items as $item) {
+        if (!empty($item['stock_problem'])) return $item['stock_problem'];
+    }
+    return '';
+}
+
+// Checkout: take each product's quantity out of stock. Must run inside the order's transaction.
+// The UPDATE only matches while enough is left (stock >= qty), and InnoDB locks the row until
+// commit / rollback, so when two buyers race for the last one, the second UPDATE waits, then
+// matches nothing and throws. Rows are locked in listing-id order so two checkouts can't deadlock.
+function sf_reserve_stock($conn, array $items) {
+    $products = array_filter($items, fn($it) => $it['type'] === 'products');
+    usort($products, fn($a, $b) => (int) substr($a['key'], 8) <=> (int) substr($b['key'], 8));
+
+    $stmt = $conn->prepare("UPDATE listings SET stock = stock - ?
+                            WHERE id = ? AND type = 'products' AND status = 'active' AND stock >= ?");
+    foreach ($products as $it) {
+        $listingId = (int) substr($it['key'], 8);
+        $qty       = (int) $it['quantity'];
+        $stmt->bind_param("iii", $qty, $listingId, $qty);
+        $stmt->execute();
+        if ($stmt->affected_rows !== 1) {
+            $stmt->close();
+            $left = sf_listing_stock($conn, $listingId);
+            throw new SfStockException($left > 0
+                ? 'Someone just bought some of ' . $it['title'] . '. Only ' . $left . ' ' . ($left === 1 ? 'is' : 'are') . ' left, so please lower the quantity.'
+                : 'Sorry, ' . $it['title'] . ' just sold out. Please remove it to continue.');
+        }
+    }
+    $stmt->close();
+}
+
+// Current stock of one listing, straight from the database
+function sf_listing_stock($conn, $listingId) {
+    $stmt = $conn->prepare("SELECT stock FROM listings WHERE id = ?");
+    $stmt->bind_param("i", $listingId);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $row ? (int) $row['stock'] : 0;
 }
 
 // ── Totals ──────────────────────────────────────────────────────
@@ -380,10 +514,14 @@ function sf_cart_totals(array $items, $promoCode = '') {
         $count    += $item['quantity'];
     }
 
-    $promos   = sf_promo_codes();
-    $promo    = ($promoCode !== '' && isset($promos[$promoCode])) ? $promos[$promoCode] : null;
-    $discount = $promo && !empty($promo['percent']) ? round($subtotal * $promo['percent'] / 100, 2) : 0;
-    $shipping = ($count === 0 || ($promo && !empty($promo['free_shipping']))) ? 0 : SF_SHIPPING_FEE;
+    // The code is checked again every time (it may have expired or run out since it was applied)
+    global $conn;
+    $promo = null;
+    if ($promoCode !== '' && $count > 0) [$promo] = sf_promo_check($conn, $promoCode, (int) ($_SESSION['user_id'] ?? 0), $subtotal);
+    $discount = 0;
+    if ($promo && $promo['type'] === 'percent') $discount = round($subtotal * (float) $promo['value'] / 100, 2);
+    if ($promo && $promo['type'] === 'fixed')   $discount = min((float) $promo['value'], $subtotal);
+    $shipping = ($count === 0 || ($promo && $promo['type'] === 'free_shipping')) ? 0 : SF_SHIPPING_FEE;
     $tax      = round(($subtotal - $discount) * SF_TAX_RATE, 2);
     $total    = $subtotal - $discount + $shipping + $tax;
 
@@ -394,8 +532,8 @@ function sf_cart_totals(array $items, $promoCode = '') {
         'shipping'    => $shipping,
         'tax'         => $tax,
         'total'       => $total,
-        'promo_code'  => $promo ? $promoCode : '',
-        'promo_label' => $promo ? $promo['label'] : '',
+        'promo_code'  => $promo ? $promo['code'] : '',
+        'promo_label' => $promo ? sf_promo_label($promo) : '',
     ];
 }
 

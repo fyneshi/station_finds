@@ -13,11 +13,11 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'db_setup.php';
-require_once 'shop.php';
-require_once 'layout.php';
-require_once 'inbox.php';
-require_once 'seller.php';
+require_once __DIR__ . '/includes/db_setup.php';
+require_once __DIR__ . '/includes/shop.php';
+require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/inbox.php';
+require_once __DIR__ . '/includes/seller.php';
 
 $userId = (int) $_SESSION['user_id'];
 $profile = sf_seller_profile($conn, $userId);
@@ -325,8 +325,8 @@ $priceLabels = ['products' => 'Price (₱)', 'rentals' => 'Price per day (₱)',
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=4"></script>
-  <script src="js/inbox.js?v=2"></script>
+  <script src="js/cart.js?v=5"></script>
+  <script src="js/inbox.js?v=3"></script>
   <script>
     const MAX_PHOTOS = <?php echo SF_MAX_PHOTOS; ?>;
     const MAX_BYTES  = <?php echo SF_UPLOAD_MAX_BYTES; ?>;

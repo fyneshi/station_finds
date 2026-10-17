@@ -24,7 +24,7 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'db_setup.php';
+require_once dirname(__DIR__) . '/includes/db_setup.php';
 
 $userId = (int) $_SESSION['user_id'];
 

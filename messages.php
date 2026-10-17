@@ -13,11 +13,11 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'db_setup.php';
-require_once 'shop.php';
-require_once 'layout.php';
-require_once 'inbox.php';
-require_once 'reports.php';
+require_once __DIR__ . '/includes/db_setup.php';
+require_once __DIR__ . '/includes/shop.php';
+require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/inbox.php';
+require_once __DIR__ . '/includes/reports.php';
 
 $userId = (int) $_SESSION['user_id'];
 
@@ -201,9 +201,9 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=4"></script>
-  <script src="js/inbox.js?v=2"></script>
-  <script src="js/report.js?v=1"></script>
+  <script src="js/cart.js?v=5"></script>
+  <script src="js/inbox.js?v=3"></script>
+  <script src="js/report.js?v=2"></script>
   <script src="js/profile-menu.js?v=2"></script>
   <script>
     // ── Conversation search: filters chats and shows matching people ──
@@ -249,7 +249,7 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
       let replyTo = null;          // { id, author, text } while replying
 
       function post(payload) {
-        return fetch('inbox_handler.php', {
+        return fetch('api/inbox_handler.php', {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -536,7 +536,7 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
             data.append('reply_to', replyTo ? replyTo.id : 0);
             data.append('photo', photo);
             btn.textContent = 'Sending…';
-            r = await fetch('inbox_handler.php', { method: 'POST', credentials: 'same-origin', body: data }).then(res => res.json());
+            r = await fetch('api/inbox_handler.php', { method: 'POST', credentials: 'same-origin', body: data }).then(res => res.json());
           } else {
             r = await post({ action: 'send', to: PARTNER_ID, text: text, reply_to: replyTo ? replyTo.id : 0 });
           }

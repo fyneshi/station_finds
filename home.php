@@ -13,7 +13,7 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'shop.php';
+require_once __DIR__ . '/includes/shop.php';
 
 // Today's picks: the newest listings from sellers
 $picks = array_slice(sf_catalog(), 0, 4, true);
@@ -340,9 +340,9 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
   </footer>
 
   <!-- Favorite hearts (saved to the database, shared with Marketplace / Search / Favorites) -->
-  <script src="js/favorites.js?v=2"></script>
-  <script src="js/cart.js?v=4"></script>
-  <script src="js/inbox.js?v=2"></script>
+  <script src="js/favorites.js?v=3"></script>
+  <script src="js/cart.js?v=5"></script>
+  <script src="js/inbox.js?v=3"></script>
   <script src="js/home-motion.js?v=2"></script>
   <script>
     function toggleUserDropdown() {

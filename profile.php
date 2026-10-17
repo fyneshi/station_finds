@@ -18,11 +18,11 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'db_setup.php';
-require_once 'shop.php';
-require_once 'layout.php';
-require_once 'inbox.php';
-require_once 'reports.php';
+require_once __DIR__ . '/includes/db_setup.php';
+require_once __DIR__ . '/includes/shop.php';
+require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/inbox.php';
+require_once __DIR__ . '/includes/reports.php';
 
 $myId      = (int) $_SESSION['user_id'];
 $profileId = (int) ($_GET['id'] ?? $myId);
@@ -207,8 +207,8 @@ $csrf = sf_csrf_token();
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=4"></script>
-  <script src="js/inbox.js?v=2"></script>
+  <script src="js/cart.js?v=5"></script>
+  <script src="js/inbox.js?v=3"></script>
   <script>
     function toggleReport(btn) {
       const form = document.getElementById('pfReport');
@@ -227,7 +227,7 @@ $csrf = sf_csrf_token();
       const btn = reportForm.querySelector('button[type="submit"]');
       btn.disabled = true;
       try {
-        const res = await fetch('report_handler.php', {
+        const res = await fetch('api/report_handler.php', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'report', type: 'user', id: <?php echo (int) $profileId; ?>,

@@ -13,10 +13,10 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'shop.php';
-require_once 'reports.php';
-require_once 'inbox.php';
-require_once 'comments.php';
+require_once __DIR__ . '/includes/shop.php';
+require_once __DIR__ . '/includes/reports.php';
+require_once __DIR__ . '/includes/inbox.php';
+require_once __DIR__ . '/includes/comments.php';
 
 // Which rental to show: rental_detail.php?id=<listing id>
 // (unknown or missing id = back to the marketplace)
@@ -415,8 +415,8 @@ $when      = fn($ts) => date('M j, Y', $ts);
     </form>
   </dialog>
 
-  <script src="js/cart.js?v=4"></script>
-  <script src="js/inbox.js?v=2"></script>
+  <script src="js/cart.js?v=5"></script>
+  <script src="js/inbox.js?v=3"></script>
   <script>
     const ITEM_ID = <?php echo json_encode($item['id']); ?>;
     const DAILY_RATE = <?php echo json_encode($item['price']); ?>;
@@ -506,7 +506,7 @@ $when      = fn($ts) => date('M j, Y', $ts);
           + 'Dates: ' + longDate(start.value) + ' to ' + longDate(document.getElementById('rentEnd').value) + ' (' + days + (days === 1 ? ' day' : ' days') + ')\n'
           + option + ' · Estimated total ' + peso(DAILY_RATE * days)
           + (note ? '\nMessage: ' + note : '');
-        const res = await fetch('inbox_handler.php', {
+        const res = await fetch('api/inbox_handler.php', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'send', to: SELLER_ID, text })
@@ -531,7 +531,7 @@ $when      = fn($ts) => date('M j, Y', $ts);
       const btn = form.querySelector('button[type="submit"]');
       btn.disabled = true;
       try {
-        const res = await fetch('report_handler.php', {
+        const res = await fetch('api/report_handler.php', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'report', type: form.dataset.reportType, id: Number(form.dataset.reportId),

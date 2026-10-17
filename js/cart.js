@@ -9,7 +9,7 @@
    SFCart.toast(message, isError)
    ========================================================================== */
 (function () {
-  const HANDLER = 'cart_handler.php';
+  const HANDLER = 'api/cart_handler.php';
 
   // Send an action to cart_handler.php and return its JSON reply.
   // Throws only when the server can't be reached or doesn't reply with JSON.

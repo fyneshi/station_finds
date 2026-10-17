@@ -14,10 +14,10 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
     exit;
 }
 
-require_once 'db_setup.php';
-require_once 'shop.php';
-require_once 'seller.php';
-require_once 'admin_layout.php';   // sf_admin_log
+require_once __DIR__ . '/includes/db_setup.php';
+require_once __DIR__ . '/includes/shop.php';
+require_once __DIR__ . '/includes/seller.php';
+require_once __DIR__ . '/includes/admin_layout.php';   // sf_admin_log
 sf_admin_require($conn, 'reports');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !sf_check_csrf()) {

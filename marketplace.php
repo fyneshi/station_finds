@@ -13,7 +13,7 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'shop.php';
+require_once __DIR__ . '/includes/shop.php';
 
 $username = $_SESSION['username'] ?? 'User';
 $email    = $_SESSION['email'] ?? '';
@@ -797,9 +797,9 @@ function render_no_results(string $type) {
     </div>
   </div>
 
-  <script src="js/favorites.js?v=2"></script>
-  <script src="js/cart.js?v=4"></script>
-  <script src="js/inbox.js?v=2"></script>
+  <script src="js/favorites.js?v=3"></script>
+  <script src="js/cart.js?v=5"></script>
+  <script src="js/inbox.js?v=3"></script>
   <script>
     /* ── Tab switching logic ──────────────────────────────────── */
     const tabConfig = {

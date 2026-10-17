@@ -12,8 +12,8 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-require_once 'db_setup.php';
-require_once 'inbox.php';
+require_once dirname(__DIR__) . '/includes/db_setup.php';
+require_once dirname(__DIR__) . '/includes/inbox.php';
 
 $userId  = (int) $_SESSION['user_id'];
 $message = sf_my_message($conn, $userId, (int) ($_GET['id'] ?? 0));   // only if you sent or received it

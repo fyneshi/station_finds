@@ -8,7 +8,7 @@ if (isset($_SESSION['user_id'])) {
     }
     exit;
 }
-require_once 'db_setup.php';
+require_once __DIR__ . '/includes/db_setup.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -223,6 +223,6 @@ require_once 'db_setup.php';
     </div>
   </div>
 
-  <script src="js/script.js?v=5"></script>
+  <script src="js/script.js?v=6"></script>
 </body>
 </html>

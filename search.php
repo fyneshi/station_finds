@@ -17,7 +17,7 @@ $username = $_SESSION['username'] ?? 'User';
 $email    = $_SESSION['email'] ?? '';
 $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
 
-require_once 'shop.php';
+require_once __DIR__ . '/includes/shop.php';
 
 $search_query = trim((string) ($_GET['q'] ?? ''));
 
@@ -328,9 +328,9 @@ $services_count = count(array_filter($items, fn($i) => $i['type'] === 'services'
   </footer>
 
   <!-- Favorite hearts (saved to the database, shared with Home / Marketplace / Favorites) -->
-  <script src="js/favorites.js?v=2"></script>
-  <script src="js/cart.js?v=4"></script>
-  <script src="js/inbox.js?v=2"></script>
+  <script src="js/favorites.js?v=3"></script>
+  <script src="js/cart.js?v=5"></script>
+  <script src="js/inbox.js?v=3"></script>
   <script>
     let currentFilter = 'all';
 

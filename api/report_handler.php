@@ -22,8 +22,8 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'db_setup.php';
-require_once 'reports.php';
+require_once dirname(__DIR__) . '/includes/db_setup.php';
+require_once dirname(__DIR__) . '/includes/reports.php';
 
 $input = json_decode(file_get_contents('php://input'), true);
 

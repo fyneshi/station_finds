@@ -13,10 +13,10 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'shop.php';
-require_once 'reports.php';
-require_once 'inbox.php';
-require_once 'comments.php';
+require_once __DIR__ . '/includes/shop.php';
+require_once __DIR__ . '/includes/reports.php';
+require_once __DIR__ . '/includes/inbox.php';
+require_once __DIR__ . '/includes/comments.php';
 
 // Which product to show: product_detail.php?id=<listing id>
 // (unknown or missing id = back to the marketplace)
@@ -352,9 +352,9 @@ $csrf     = sf_csrf_token();
     </div>
   </footer>
 
-  <script src="js/cart.js?v=4"></script>
-  <script src="js/inbox.js?v=2"></script>
-  <script src="js/report.js?v=1"></script>
+  <script src="js/cart.js?v=5"></script>
+  <script src="js/inbox.js?v=3"></script>
+  <script src="js/report.js?v=2"></script>
   <script>
     const ITEM_ID = <?php echo json_encode($item['id']); ?>;
     const ORDER_LIMIT = <?php echo SF_MAX_QTY; ?>;      // most of one item per order

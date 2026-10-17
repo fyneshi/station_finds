@@ -12,7 +12,7 @@
 session_start();
 header('Content-Type: application/json');
 
-require_once 'db_setup.php';
+require_once dirname(__DIR__) . '/includes/db_setup.php';
 
 // ── Read JSON request body (with fallback to $_POST) ────────────
 $rawInput = file_get_contents('php://input');
@@ -203,7 +203,7 @@ switch ($action) {
         $stmt->close();
         unset($_SESSION['reset_fails']);
 
-        require_once 'inbox.php';
+        require_once dirname(__DIR__) . '/includes/inbox.php';
         sf_notify($conn, (int) $account['id'], 'security', 'Your password was changed',
             'Your password was reset from the login page. If this wasn\'t you, contact support@stationfinds.edu.ph right away.', 'account.php?tab=credentials');
 

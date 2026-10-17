@@ -427,7 +427,7 @@ function sf_check_listing_photo(array $file) {
 
 // Saves a photo already passed by sf_check_listing_photo. Returns the saved path or null.
 function sf_save_listing_photo(array $file, $ext) {
-    $dir = __DIR__ . '/' . SF_UPLOAD_DIR;
+    $dir = dirname(__DIR__) . '/' . SF_UPLOAD_DIR;
     if (!is_dir($dir) && !mkdir($dir, 0755, true)) return null;
     $name = bin2hex(random_bytes(12)) . '.' . $ext;
     return move_uploaded_file($file['tmp_name'], $dir . '/' . $name) ? SF_UPLOAD_DIR . '/' . $name : null;
@@ -436,7 +436,7 @@ function sf_save_listing_photo(array $file, $ext) {
 // Remove a photo saved by sf_save_listing_photo (ignores anything outside the upload folder)
 function sf_delete_listing_photo($path) {
     if (preg_match('#^' . preg_quote(SF_UPLOAD_DIR, '#') . '/[a-f0-9]{24}\.(jpg|png|webp)$#', (string) $path)) {
-        @unlink(__DIR__ . '/' . $path);
+        @unlink(dirname(__DIR__) . '/' . $path);
     }
 }
 
@@ -541,7 +541,7 @@ function sf_save_id_document(array $file) {
     }
     if (!$ext) return [null, 'Upload a JPG, PNG or WebP photo, or a PDF.'];
 
-    $dir = __DIR__ . '/' . SF_ID_DIR;
+    $dir = dirname(__DIR__) . '/' . SF_ID_DIR;
     if (!is_dir($dir) && !mkdir($dir, 0755, true)) return [null, 'The file could not be saved. Please try again.'];
     $name = bin2hex(random_bytes(12)) . '.' . $ext;
     if (!move_uploaded_file($file['tmp_name'], $dir . '/' . $name)) return [null, 'The file could not be saved. Please try again.'];
@@ -551,7 +551,7 @@ function sf_save_id_document(array $file) {
 // Full path of a saved ID document, or null if the stored value isn't one of ours
 function sf_id_document_path($path) {
     if (!preg_match('#^' . preg_quote(SF_ID_DIR, '#') . '/[a-f0-9]{24}\.(jpg|png|webp|pdf)$#', (string) $path)) return null;
-    $full = __DIR__ . '/' . $path;
+    $full = dirname(__DIR__) . '/' . $path;
     return is_file($full) ? $full : null;
 }
 

@@ -13,10 +13,10 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'db_setup.php';
-require_once 'shop.php';
-require_once 'layout.php';
-require_once 'seller.php';
+require_once __DIR__ . '/includes/db_setup.php';
+require_once __DIR__ . '/includes/shop.php';
+require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/seller.php';
 
 const CONTACT_HOURLY_LIMIT = 5;   // messages one user can send per hour
 
@@ -151,7 +151,7 @@ $bad = fn($key) => isset($errors[$key]) ? ' has-error' : '';
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=4"></script>
-  <script src="js/inbox.js?v=2"></script>
+  <script src="js/cart.js?v=5"></script>
+  <script src="js/inbox.js?v=3"></script>
 </body>
 </html>

@@ -73,7 +73,7 @@
     const btn = dialog.querySelector('.sf-report-send');
     btn.disabled = true;
     try {
-      const res = await fetch('report_handler.php', {
+      const res = await fetch('api/report_handler.php', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },

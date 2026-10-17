@@ -230,7 +230,7 @@ const SF_AVATAR_MAX_BYTES = 3 * 1024 * 1024;   // 3 MB
 function sf_avatar_url($path) {
     $path = (string) $path;
     if (!preg_match('#^' . preg_quote(SF_AVATAR_DIR, '#') . '/[a-f0-9]{24}\.(jpg|png|webp)$#', $path)) return '';
-    return is_file(__DIR__ . '/' . $path) ? $path : '';
+    return is_file(dirname(__DIR__) . '/' . $path) ? $path : '';
 }
 
 // What goes inside an avatar circle: the picture, or the person's initials
@@ -297,7 +297,7 @@ function sf_save_avatar(array $file) {
     if (!$info || !isset($exts[$info['mime']])) return [null, 'Choose a JPG, PNG or WebP photo.'];
     if ($info[0] < 64 || $info[1] < 64) return [null, 'That photo is too small. Use one at least 64 × 64 pixels.'];
 
-    $dir = __DIR__ . '/' . SF_AVATAR_DIR;
+    $dir = dirname(__DIR__) . '/' . SF_AVATAR_DIR;
     if (!is_dir($dir) && !mkdir($dir, 0755, true)) return [null, 'The photo could not be saved. Please try again.'];
     $name = bin2hex(random_bytes(12)) . '.' . $exts[$info['mime']];
     if (!move_uploaded_file($file['tmp_name'], $dir . '/' . $name)) return [null, 'The photo could not be saved. Please try again.'];
@@ -306,7 +306,7 @@ function sf_save_avatar(array $file) {
 
 function sf_delete_avatar($path) {
     $url = sf_avatar_url($path);
-    if ($url !== '') @unlink(__DIR__ . '/' . $url);
+    if ($url !== '') @unlink(dirname(__DIR__) . '/' . $url);
 }
 
 // ── Promo codes ("Enter student code") ──────────────────────────

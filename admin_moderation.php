@@ -7,12 +7,12 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
     exit;
 }
 
-require_once 'db_setup.php';
-require_once 'shop.php';
-require_once 'inbox.php';
-require_once 'seller.php';
-require_once 'reports.php';
-require_once 'admin_layout.php';
+require_once __DIR__ . '/includes/db_setup.php';
+require_once __DIR__ . '/includes/shop.php';
+require_once __DIR__ . '/includes/inbox.php';
+require_once __DIR__ . '/includes/seller.php';
+require_once __DIR__ . '/includes/reports.php';
+require_once __DIR__ . '/includes/admin_layout.php';
 sf_admin_require($conn, 'moderation');
 
 $tabs = ['all' => 'All', 'listing' => 'Listings', 'user' => 'Users'];
@@ -184,8 +184,8 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="CSS/admin.css?v=23" />
-  <link rel="stylesheet" href="CSS/admin-shell.css?v=2" />
+  <link rel="stylesheet" href="css/admin.css?v=23" />
+  <link rel="stylesheet" href="css/admin-shell.css?v=2" />
 </head>
 <body>
 

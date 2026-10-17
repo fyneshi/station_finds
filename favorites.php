@@ -13,7 +13,7 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'db_setup.php';
+require_once __DIR__ . '/includes/db_setup.php';
 
 $username = $_SESSION['username'] ?? 'User';
 $email    = $_SESSION['email'] ?? '';
@@ -35,7 +35,7 @@ while ($row = $res->fetch_assoc()) {
 $stmt->close();
 
 // Show the listing's current cover photo (it may have been added or changed since it was saved)
-require_once 'shop.php';
+require_once __DIR__ . '/includes/shop.php';
 foreach ($favorites as &$fav) {
     parse_str((string) parse_url($fav['link'], PHP_URL_QUERY), $query);
     $listing = sf_get_item($query['id'] ?? '');
@@ -338,8 +338,8 @@ $badgeLabels = [
     </div>
   </footer>
 
-  <script src="js/cart.js?v=4"></script>
-  <script src="js/inbox.js?v=2"></script>
+  <script src="js/cart.js?v=5"></script>
+  <script src="js/inbox.js?v=3"></script>
   <script>
     let currentFilter = 'all';
     const typeLabels = { products: 'products', rentals: 'rentals', services: 'services' };
@@ -406,7 +406,7 @@ $badgeLabels = [
       card.style.transform = 'scale(0.92)';
       card.style.opacity = '0';
 
-      fetch('favorite_handler.php', {
+      fetch('api/favorite_handler.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'remove', key: key })

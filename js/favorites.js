@@ -79,7 +79,7 @@
   }
 
   async function post(payload) {
-    const res = await fetch('favorite_handler.php', {
+    const res = await fetch('api/favorite_handler.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

@@ -13,10 +13,10 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'shop.php';
-require_once 'reports.php';
-require_once 'inbox.php';
-require_once 'comments.php';
+require_once __DIR__ . '/includes/shop.php';
+require_once __DIR__ . '/includes/reports.php';
+require_once __DIR__ . '/includes/inbox.php';
+require_once __DIR__ . '/includes/comments.php';
 
 // Which service to show: service_detail.php?id=<listing id>
 // (unknown or missing id = back to the marketplace)
@@ -392,9 +392,9 @@ $csrf     = sf_csrf_token();
     </form>
   </dialog>
 
-  <script src="js/cart.js?v=4"></script>
-  <script src="js/inbox.js?v=2"></script>
-  <script src="js/report.js?v=1"></script>
+  <script src="js/cart.js?v=5"></script>
+  <script src="js/inbox.js?v=3"></script>
+  <script src="js/report.js?v=2"></script>
   <script>
     const ITEM_ID = <?php echo json_encode($item['id']); ?>;
     const RATE = <?php echo json_encode($item['price']); ?>;
@@ -457,7 +457,7 @@ $csrf     = sf_csrf_token();
           + 'Where: ' + where.value.trim() + '\n'
           + 'Estimated total ' + peso(RATE * units)
           + (note ? '\nDetails: ' + note : '');
-        const res = await fetch('inbox_handler.php', {
+        const res = await fetch('api/inbox_handler.php', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'send', to: SELLER_ID, text })

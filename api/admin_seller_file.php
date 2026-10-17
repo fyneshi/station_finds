@@ -9,14 +9,14 @@ session_start();
 
 // Admins only
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
-    header('Location: index.php');
+    header('Location: ../index.php');
     exit;
 }
 
-require_once 'db_setup.php';
-require_once 'shop.php';
-require_once 'seller.php';
-require_once 'admin_layout.php';
+require_once dirname(__DIR__) . '/includes/db_setup.php';
+require_once dirname(__DIR__) . '/includes/shop.php';
+require_once dirname(__DIR__) . '/includes/seller.php';
+require_once dirname(__DIR__) . '/includes/admin_layout.php';
 sf_admin_require($conn, 'seller-apps');
 
 $profile = sf_seller_profile($conn, (int) ($_GET['id'] ?? 0));

@@ -31,8 +31,8 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'db_setup.php';
-require_once 'inbox.php';
+require_once dirname(__DIR__) . '/includes/db_setup.php';
+require_once dirname(__DIR__) . '/includes/inbox.php';
 
 $userId = (int) $_SESSION['user_id'];
 
@@ -44,7 +44,7 @@ $action = $input['action'] ?? '';
 
 // Changes must be JSON requests from this site (browsers block cross-site JSON posts).
 // Photo uploads can't be JSON, so they carry the page's security token instead.
-require_once 'shop.php';   // sf_check_csrf
+require_once dirname(__DIR__) . '/includes/shop.php';   // sf_check_csrf
 $isPhotoUpload = $action === 'send_photo' && sf_check_csrf();
 if ($action !== 'unread' && !$isPhotoUpload && stripos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') === false) {
     http_response_code(400);

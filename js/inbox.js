@@ -10,7 +10,7 @@
    SFInbox.show(counts)       draw { notifications, messages }
    ========================================================================== */
 (function () {
-  const HANDLER = 'inbox_handler.php';
+  const HANDLER = 'api/inbox_handler.php';
 
   function show(counts) {
     if (!counts) return;

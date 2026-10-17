@@ -77,7 +77,7 @@ function showToast(message, type = 'success') {
 // ── Helper: Send request to auth_handler.php ──────────────────────
 async function sendAuthRequest(data) {
   try {
-    const response = await fetch('auth_handler.php', {
+    const response = await fetch('api/auth_handler.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)

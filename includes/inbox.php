@@ -153,7 +153,7 @@ function sf_save_chat_photo(array $file) {
     $info = @getimagesize($file['tmp_name']);
     $exts = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
     if (!$info || !isset($exts[$info['mime']])) return [null, 'Send a JPG, PNG or WebP photo.'];
-    $dir = __DIR__ . '/' . SF_CHAT_DIR;
+    $dir = dirname(__DIR__) . '/' . SF_CHAT_DIR;
     if (!is_dir($dir) && !mkdir($dir, 0755, true)) return [null, 'The photo could not be saved. Please try again.'];
     $name = bin2hex(random_bytes(12)) . '.' . $exts[$info['mime']];
     if (!move_uploaded_file($file['tmp_name'], $dir . '/' . $name)) return [null, 'The photo could not be saved. Please try again.'];
@@ -163,7 +163,7 @@ function sf_save_chat_photo(array $file) {
 // Full path of a saved chat photo, or null if the stored value isn't one of ours
 function sf_chat_photo_path($path) {
     if (!preg_match('#^' . preg_quote(SF_CHAT_DIR, '#') . '/[a-f0-9]{24}\.(jpg|png|webp)$#', (string) $path)) return null;
-    $full = __DIR__ . '/' . $path;
+    $full = dirname(__DIR__) . '/' . $path;
     return is_file($full) ? $full : null;
 }
 
@@ -225,7 +225,7 @@ function sf_message_payloads($conn, $userId, array $rows, $partnerName) {
             'time'      => sf_message_time($m['ts']),
             'reply'     => $quote,
             // Only the two people in the chat can open it (message_file.php checks)
-            'photo'     => !$m['unsent'] && ($m['attachment'] ?? '') !== '' ? 'message_file.php?id=' . (int) $m['id'] : null,
+            'photo'     => !$m['unsent'] && ($m['attachment'] ?? '') !== '' ? 'api/message_file.php?id=' . (int) $m['id'] : null,
             'reactions' => $m['unsent'] ? [] : ($reactions[(int) $m['id']] ?? []),
         ];
     }, $rows);

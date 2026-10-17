@@ -29,8 +29,8 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'db_setup.php';
-require_once 'shop.php';
+require_once dirname(__DIR__) . '/includes/db_setup.php';
+require_once dirname(__DIR__) . '/includes/shop.php';
 
 $userId  = (int) $_SESSION['user_id'];
 $catalog = sf_catalog();

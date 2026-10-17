@@ -8,6 +8,13 @@
  * Default XAMPP credentials are used (root, no password).
  */
 
+// Link to a page in the project root, from any folder (handlers in api/ are one level down)
+function sf_root_url($page) {
+    $dir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
+    if (basename($dir) === 'api') $dir = dirname($dir);
+    return rtrim($dir, '/') . '/' . $page;
+}
+
 // ── Database Configuration ──────────────────────────────────────
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
@@ -637,7 +644,7 @@ if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['user_id'])) {
             http_response_code(401);
             echo json_encode(['success' => false, 'message' => 'Your account has been suspended. Contact support@stationfinds.edu.ph.']);
         } else {
-            header('Location: index.php');
+            header('Location: ' . sf_root_url('index.php'));
         }
         exit;
     }

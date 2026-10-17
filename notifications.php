@@ -13,10 +13,10 @@ if (($_SESSION['role'] ?? '') === 'admin') {
     exit;
 }
 
-require_once 'db_setup.php';
-require_once 'shop.php';
-require_once 'layout.php';
-require_once 'inbox.php';
+require_once __DIR__ . '/includes/db_setup.php';
+require_once __DIR__ . '/includes/shop.php';
+require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/inbox.php';
 
 $userId        = (int) $_SESSION['user_id'];
 $notifications = sf_notifications($conn, $userId);
@@ -96,11 +96,11 @@ $e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=4"></script>
-  <script src="js/inbox.js?v=2"></script>
+  <script src="js/cart.js?v=5"></script>
+  <script src="js/inbox.js?v=3"></script>
   <script>
     function post(payload) {
-      return fetch('inbox_handler.php', {
+      return fetch('api/inbox_handler.php', {
         method: 'POST',
         credentials: 'same-origin',
         keepalive: true,

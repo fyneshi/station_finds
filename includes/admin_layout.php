@@ -1,7 +1,7 @@
 <?php
 /**
  * Shared sidebar + top bar for the admin pages (admin_dashboard.php, admin_users.php, admin_listings.php, admin_sellers.php, admin_moderation.php, admin_transactions.php, admin_reports.php,
- * admin_payouts.php, admin_categories.php, admin_promos.php, admin_feedback.php, admin_logs.php, admin_notifications.php). Styles: CSS/admin-shell.css.
+ * admin_payouts.php, admin_categories.php, admin_promos.php, admin_feedback.php, admin_logs.php, admin_notifications.php). Styles: css/admin-shell.css.
  * Needs db_setup.php included first ($conn).
  *
  *   sf_admin_shell_start('users', 'Search users…');   // after <body>
@@ -86,7 +86,7 @@ function sf_admin_can($conn, $area) {
 function sf_admin_require($conn, $area) {
     if (sf_admin_can($conn, $area)) return;
     $_SESSION['access_denied'] = 'You don\'t have access to ' . (sf_admin_menu()[$area][0] ?? 'that page') . '. Ask a super admin to add it in Settings › Roles & permissions.';
-    header('Location: admin_dashboard.php');
+    header('Location: ' . sf_root_url('admin_dashboard.php'));
     exit;
 }
 

@@ -8,3 +8,6 @@ private/**
 
 # Editor settings
 .vscode/
+
+# Database password for the web host (see includes/config.sample.php)
+includes/config.php

@@ -16,10 +16,13 @@ function sf_root_url($page) {
 }
 
 // ── Database Configuration ──────────────────────────────────────
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');           // Default XAMPP: no password
-define('DB_NAME', 'station_finds');
+// On a web host, its database details go in includes/config.php (see config.sample.php;
+// it's kept out of Git). Without that file, the XAMPP defaults below are used.
+if (is_file(__DIR__ . '/config.php')) require __DIR__ . '/config.php';
+defined('DB_HOST') || define('DB_HOST', 'localhost');
+defined('DB_USER') || define('DB_USER', 'root');
+defined('DB_PASS') || define('DB_PASS', '');           // Default XAMPP: no password
+defined('DB_NAME') || define('DB_NAME', 'station_finds');
 
 // ── Connect to MySQL Server ─────────────────────────────────────
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS);
@@ -32,8 +35,20 @@ if ($conn->connect_error) {
 }
 
 // ── Create Database if it doesn't exist ─────────────────────────
-$conn->query("CREATE DATABASE IF NOT EXISTS `" . DB_NAME . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-$conn->select_db(DB_NAME);
+// Web hosts create the database in their control panel and don't allow this, so it's skipped there
+try {
+    $conn->query("CREATE DATABASE IF NOT EXISTS `" . DB_NAME . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+} catch (mysqli_sql_exception $e) {
+    // no permission: the database already exists on the host
+}
+try {
+    $found = $conn->select_db(DB_NAME);
+} catch (mysqli_sql_exception $e) {
+    $found = false;
+}
+if (!$found) {
+    die(json_encode(['success' => false, 'message' => 'Database "' . DB_NAME . '" was not found. Check includes/config.php.']));
+}
 $conn->set_charset('utf8mb4');
 
 // ── Create Users Table if it doesn't exist ──────────────────────

@@ -15,8 +15,8 @@ if (($_SESSION['role'] ?? '') === 'admin') {
 
 require_once __DIR__ . '/includes/shop.php';
 
-// Today's picks: the newest listings from sellers
-$picks = array_slice(sf_catalog(), 0, 4, true);
+// Today's picks: the newest listings from sellers, leaving out products that are out of stock
+$picks = array_slice(array_filter(sf_catalog(), fn($item) => $item['type'] !== 'products' || $item['stock'] > 0), 0, 4, true);
 $listingCounts = array_count_values(array_column(sf_catalog(), 'type')) + ['products' => 0, 'rentals' => 0, 'services' => 0];
 $e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 
@@ -139,13 +139,6 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
                 <circle cx="12" cy="7" r="4"></circle>
               </svg>
               My Profile
-            </a>
-            <a href="account.php?tab=seller" class="dropdown-item">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
-                <line x1="3" y1="6" x2="21" y2="6"></line>
-              </svg>
-              My Listings
             </a>
             <div class="dropdown-divider"></div>
             <a href="logout.php" class="dropdown-item logout-link">

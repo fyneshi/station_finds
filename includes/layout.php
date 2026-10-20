@@ -66,7 +66,6 @@ function sf_render_navbar($cartCount = 0, $active = '') {
             <a href="admin_dashboard.php" class="dropdown-item" style="color: #f7a827; font-weight: 700;">Admin Dashboard</a>
             <?php endif; ?>
             <a href="account.php?tab=profile" class="dropdown-item">My Profile</a>
-            <a href="account.php?tab=seller" class="dropdown-item">My Listings</a>
             <div class="dropdown-divider"></div>
             <a href="logout.php" class="dropdown-item logout-link">Log out</a>
           </div>

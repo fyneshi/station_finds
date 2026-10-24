@@ -15,6 +15,15 @@ function sf_root_url($page) {
     return rtrim($dir, '/') . '/' . $page;
 }
 
+// A page to come back to after logging in (index.php?next=…): only this site's own buyer pages
+function sf_safe_next($next) {
+    $next = trim((string) $next);
+    if (!preg_match('/^[a-z_]+\.php(\?[A-Za-z0-9_=&%.\-]*)?$/', $next)) return '';
+    $page = strtok($next, '?');
+    if (in_array($page, ['index.php', 'logout.php'], true) || strpos($page, 'admin_') === 0) return '';
+    return is_file(dirname(__DIR__) . '/' . $page) ? $next : '';
+}
+
 // ── Database Configuration ──────────────────────────────────────
 // On a web host, its database details go in includes/config.php (see config.sample.php;
 // it's kept out of Git). Without that file, the XAMPP defaults below are used.

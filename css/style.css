@@ -342,6 +342,16 @@ body {
   .circle-1, .circle-2, .circle-3 { display: none; }
 }
 
+/* Phones: a short welcome strip, so the log in form is on the first screen */
+@media (max-width: 640px) {
+  .brand-panel { padding: 24px 20px 28px; }
+  .brand-hero { margin: 18px 0 0; }
+  .brand-hero h1 { font-size: 26px; }
+  .features-list, .brand-footer { display: none; }
+  .form-panel { padding: 24px 16px 40px; }
+  .form-card { padding: 28px 22px; }
+}
+
 /* Logo Styling */
 .brand-logo-container {
   position: relative;
@@ -349,11 +359,16 @@ body {
 }
 
 .brand-logo-img {
-  height: 110px;
-  width: auto;
-  max-width: 220px;
+  height: auto;
+  width: 380px;              /* the logo fills only the middle of logo.png, so the image is drawn wider */
+  max-width: none;
   object-fit: contain;
   display: block;
+  /* Trim the empty space around the logo (it starts 12% in, 33% down) so it lines up with the heading */
+  margin: -62px 0 -72px -47px;
+}
+@media (max-width: 900px) {
+  .brand-logo-img { width: 260px; margin: -42px 0 -50px -32px; }
 }
 
 
@@ -460,3 +475,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* "Browse as a guest" under the log in form */
+.guest-browse-link {
+  display: block; margin-top: 18px; padding-top: 16px; border-top: 1px solid #f1ece4;
+  text-align: center; font-size: 13.5px; font-weight: 600; color: #64748b; text-decoration: none;
+}
+.guest-browse-link:hover { color: #18232A; text-decoration: underline; }

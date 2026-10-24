@@ -1,9 +1,8 @@
 <?php
 session_start();
 
-// Redirect to login page if user is not authenticated
 if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
+    header('Location: index.php?next=' . rawurlencode(basename($_SERVER['REQUEST_URI'] ?? '')));
     exit;
 }
 
@@ -180,6 +179,8 @@ $priceLabels = ['products' => 'Price (₱)', 'rentals' => 'Price per day (₱)',
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=5" />
   <link rel="stylesheet" href="css/account.css?v=21" />
+  <link rel="stylesheet" href="css/header.css?v=1" />
+  <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
 <body>
 
@@ -325,8 +326,8 @@ $priceLabels = ['products' => 'Price (₱)', 'rentals' => 'Price per day (₱)',
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=5"></script>
-  <script src="js/inbox.js?v=3"></script>
+  <script src="js/cart.js?v=6"></script>
+  <script src="js/inbox.js?v=4"></script>
   <script>
     const MAX_PHOTOS = <?php echo SF_MAX_PHOTOS; ?>;
     const MAX_BYTES  = <?php echo SF_UPLOAD_MAX_BYTES; ?>;
@@ -456,5 +457,6 @@ $priceLabels = ['products' => 'Price (₱)', 'rentals' => 'Price per day (₱)',
     });
     if (savedBoxes.length) updateSavedPhotos();   // after a reload with errors, keep earlier removals hidden
   </script>
+  <?php sf_render_tabbar('account'); ?>
 </body>
 </html>

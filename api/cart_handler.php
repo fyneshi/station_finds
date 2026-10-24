@@ -177,6 +177,10 @@ switch ($action) {
         $subtotal = array_sum(array_column(sf_cart_items($conn, $userId), 'line_total'));
         [$promo, $why] = sf_promo_check($conn, $input['code'] ?? '', $userId, $subtotal);
         if (!$promo) fail($why);
+        // Free shipping only means something when a product is being shipped
+        if ($promo['type'] === 'free_shipping' && !in_array('products', array_column(sf_cart_items($conn, $userId), 'type'), true)) {
+            fail('This code gives free shipping, but rentals and services have no shipping fee.');
+        }
         $_SESSION['promo_code'] = $promo['code'];
         respond($conn, $userId, ['message' => $promo['code'] . ': ' . sf_promo_label($promo) . ' applied.']);
         break;

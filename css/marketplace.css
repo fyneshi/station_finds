@@ -606,6 +606,7 @@ body {
   gap: 6px;
   margin-bottom: 8px;
   flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .badge {
@@ -615,6 +616,7 @@ body {
   padding: 3px 7px;
   border-radius: 4px;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .badge-product {
@@ -1194,3 +1196,7 @@ body {
 .badge-stock-in  { background-color: #ecfdf5; color: #047857; }
 .badge-stock-low { background-color: #fffbeb; color: #b45309; }
 .badge-stock-out { background-color: #fef2f2; color: #b91c1c; }
+
+/* Location chosen on the Home page */
+.location-chip { margin-top: 6px; font-size: 13.5px; color: #475569; }
+.location-chip a { color: #475569; font-weight: 600; text-decoration: underline; }

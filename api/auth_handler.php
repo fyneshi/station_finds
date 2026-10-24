@@ -77,7 +77,7 @@ switch ($action) {
                 'message'  => 'Account created successfully!',
                 'username' => $username,
                 'role'     => 'user',
-                'redirect' => 'home.php'
+                'redirect' => sf_safe_next($input['next'] ?? '') ?: 'home.php'
             ]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Registration failed. Please try again.']);
@@ -138,7 +138,7 @@ switch ($action) {
         $stamp->execute();
         $stamp->close();
 
-        $redirect = ($role === 'admin') ? 'admin_dashboard.php' : 'home.php';
+        $redirect = ($role === 'admin') ? 'admin_dashboard.php' : (sf_safe_next($input['next'] ?? '') ?: 'home.php');
 
         echo json_encode([
             'success'  => true,

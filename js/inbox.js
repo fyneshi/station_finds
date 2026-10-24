@@ -95,6 +95,7 @@
   window.SFInbox = { refresh: refresh, show: show };
 
   function init() {
+    if (window.SF_GUEST) return;   // nothing to count for guests
     if (!document.querySelector('a.icon-btn[href="notifications.php"], a.nav-link[href="messages.php"]')) return;
     refresh();
     setInterval(refresh, 30000);

@@ -1,11 +1,7 @@
 <?php
 session_start();
 
-// Redirect to login page if user is not authenticated
-if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
-    exit;
-}
+// Guests can browse this page; account features ask them to log in (js/guest.js)
 
 // Admins only use the admin dashboard
 if (($_SESSION['role'] ?? '') === 'admin') {
@@ -18,6 +14,7 @@ $email    = $_SESSION['email'] ?? '';
 $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
 
 require_once __DIR__ . '/includes/shop.php';
+require_once __DIR__ . '/includes/layout.php';
 
 $search_query = trim((string) ($_GET['q'] ?? ''));
 
@@ -88,105 +85,14 @@ $services_count = count(array_filter($items, fn($i) => $i['type'] === 'services'
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/search.css?v=3" />
+  <link rel="stylesheet" href="css/search.css?v=4" />
+  <link rel="stylesheet" href="css/header.css?v=1" />
+  <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
 <body>
 
   <!-- ==================== HEADER / NAVBAR ==================== -->
-  <header class="navbar">
-    <div class="nav-container">
-      <div class="nav-left">
-        <a href="home.php" class="nav-brand">
-          <img src="assets/images/logo2.png" alt="Station Finds" class="nav-logo-img" />
-          <span class="nav-brand-text">
-            <span class="brand-station">STATION</span>
-            <span class="brand-finds">FINDS</span>
-          </span>
-        </a>
-
-        <nav class="nav-links">
-          <a href="home.php" class="nav-link">Home</a>
-          <a href="marketplace.php" class="nav-link">Marketplace</a>
-          <a href="messages.php" class="nav-link">Messages</a>
-          <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
-          <a href="admin_dashboard.php" class="nav-link" style="color: #f7a827; font-weight: 700;">Admin Dashboard</a>
-          <?php endif; ?>
-        </nav>
-      </div>
-
-      <!-- Search Bar -->
-      <div class="nav-center">
-        <form action="search.php" method="GET" class="search-bar" onsubmit="handleNavSearch(event)">
-          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input
-            type="text"
-            name="q"
-            id="navSearchInput"
-            class="search-input"
-            value="<?php echo htmlspecialchars($search_query); ?>"
-            placeholder="Search books, gadgets, dorm find, bike rentals, tutors..."
-          />
-        </form>
-      </div>
-
-      <div class="nav-right">
-        <a href="notifications.php" class="icon-btn" title="Notifications" aria-label="Notifications">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-          </svg>
-        </a>
-        <a href="favorites.php" class="icon-btn" title="Saved Items" aria-label="Saved Items">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-          </svg>
-        </a>
-        <a href="cart.php" class="icon-btn cart-btn" title="Shopping Cart" aria-label="Shopping Cart">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="9" cy="21" r="1"></circle>
-            <circle cx="20" cy="21" r="1"></circle>
-            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-          </svg>
-          <span class="cart-badge" style="display: none;"></span>
-        </a>
-
-        <!-- User Menu -->
-        <div class="user-menu-wrapper">
-          <button type="button" class="user-avatar-btn" id="userMenuBtn" onclick="toggleUserDropdown()" aria-label="User profile">
-            <?php echo sf_nav_avatar_html(); ?>
-          </button>
-          <div class="user-dropdown" id="userDropdown">
-            <div class="user-dropdown-header">
-              <div class="dropdown-avatar"><?php echo sf_nav_avatar_html(); ?></div>
-              <div class="dropdown-user-details">
-                <span class="dropdown-username"><?php echo htmlspecialchars($username); ?></span>
-                <span class="dropdown-email"><?php echo htmlspecialchars($email); ?></span>
-              </div>
-            </div>
-            <div class="dropdown-divider"></div>
-            <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
-            <a href="admin_dashboard.php" class="dropdown-item" style="color: #f7a827; font-weight: 700;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-              Admin Dashboard
-            </a>
-            <?php endif; ?>
-            <a href="account.php?tab=profile" class="dropdown-item">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-              My Profile
-            </a>
-            <div class="dropdown-divider"></div>
-            <a href="logout.php" class="dropdown-item logout-link">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-              Log out
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
+  <?php sf_render_navbar(sf_cart_count($conn, (int) ($_SESSION['user_id'] ?? 0)), 'market'); ?>
 
   <!-- ==================== MAIN SEARCH CONTENT ==================== -->
   <main class="search-wrapper">
@@ -324,9 +230,9 @@ $services_count = count(array_filter($items, fn($i) => $i['type'] === 'services'
   </footer>
 
   <!-- Favorite hearts (saved to the database, shared with Home / Marketplace / Favorites) -->
-  <script src="js/favorites.js?v=3"></script>
-  <script src="js/cart.js?v=5"></script>
-  <script src="js/inbox.js?v=3"></script>
+  <script src="js/favorites.js?v=4"></script>
+  <script src="js/cart.js?v=6"></script>
+  <script src="js/inbox.js?v=4"></script>
   <script>
     let currentFilter = 'all';
 
@@ -387,5 +293,6 @@ $services_count = count(array_filter($items, fn($i) => $i['type'] === 'services'
       }
     });
   </script>
+  <?php sf_render_tabbar('market'); ?>
 </body>
 </html>

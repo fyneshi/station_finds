@@ -1,0 +1,110 @@
+/* ==========================================================================
+   STATION FINDS — PHONE & TABLET LAYOUT
+   Loaded last on every buyer/seller page (after the page's own stylesheet),
+   so these rules win on small screens. Desktop layouts are not affected.
+   Colours match the header (css/header.css).
+   ========================================================================== */
+
+/* ── Bottom tab bar (includes/layout.php › sf_render_tabbar) ── */
+.sf-tabbar { display: none; }
+
+@media (max-width: 768px) {
+  .sf-tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1100;
+    display: flex;
+    background: #18232A;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .sf-tabbar .sf-tab {
+    flex: 1; position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    height: 58px; margin: 0; padding: 0; border: 0; border-radius: 0; background: none;
+    color: #94a3b8; font-size: 11px; font-weight: 600; text-decoration: none;
+  }
+  .sf-tabbar .sf-tab:hover { color: #ffffff; background: none; }
+  .sf-tabbar .sf-tab.active { color: #d4a843; }
+  .sf-tabbar .sf-tab::after { display: none; }              /* page styles underline .nav-link */
+  .sf-tabbar .sf-msg-count { position: absolute; top: 5px; left: calc(50% + 6px); margin: 0; }
+
+  /* Room for the bar under the page, the footer and pop-up messages */
+  body:has(.sf-tabbar) { padding-bottom: calc(58px + env(safe-area-inset-bottom)); }
+  body:has(.sf-tabbar) .sf-toast { bottom: calc(74px + env(safe-area-inset-bottom)); }
+
+  /* The top bar's Home / Marketplace / Messages links move into the tab bar */
+  .navbar .nav-links { display: none; }
+
+  /* Messages: keep the message box above the tab bar */
+  body:has(.sf-tabbar) .chat-layout { height: calc(100vh - 228px); }
+}
+
+/* ── Top bar on phones: small logo, icons always visible, search on its own row ── */
+@media (max-width: 640px) {
+  .navbar .nav-container { flex-wrap: wrap; gap: 8px 10px; padding: 8px 14px 10px; }
+  .navbar .nav-left { gap: 12px; min-width: 0; }
+  .navbar .nav-right { margin-left: auto; }
+  .navbar .nav-center { display: block; order: 3; flex: 1 0 100%; max-width: none; }
+  .navbar .nav-center .search-bar { width: 100%; max-width: none; }
+  .navbar .nav-center .search-bar input { flex: 1; min-width: 0; width: 100%; }
+}
+
+/* ── Listing pages (product / rental / service): details before comments ── */
+@media (max-width: 900px) {
+  /* The left column's pieces join the main grid so they can be put in order:
+     photos, then the item's details and buttons, then comments and reviews */
+  .detail-grid .detail-media-col { display: contents; }
+  .detail-grid .detail-media-col > * { order: 1; min-width: 0; }
+  .detail-grid .detail-info-col { order: 2; min-width: 0; }
+  .detail-grid .detail-media-col > .comments-card { order: 3; }
+  .detail-grid .detail-thumbnails-row { margin-top: -18px; }
+}
+
+@media (max-width: 640px) {
+  /* Buy now / Add to cart stacked full width (in a column, flex: 1 squashed them to nothing) */
+  .detail-actions-row > button { flex: none; width: 100%; }
+}
+
+/* ==========================================================================
+   LARGE SCREENS AND ZOOMED-OUT BROWSERS
+   Zooming out makes the window "wider", which left the 1240px page in a thin
+   strip in the middle. From 1600px up the page widens in steps and the card
+   grids add columns (cards keep their size; more of them fit). Listing,
+   cart and account pages stop at 1480px so photos and forms don't stretch.
+   ========================================================================== */
+:root { --sf-page: 1240px; }
+@media (min-width: 1600px) { :root { --sf-page: 1480px; } }
+@media (min-width: 2000px) { :root { --sf-page: 1720px; } }
+@media (min-width: 2400px) { :root { --sf-page: 1960px; } }
+
+@media (min-width: 1600px) {
+  /* Browse pages, header and footer use the full step */
+  .navbar .nav-container, .footer-container, .main-container, .search-wrapper, .favorites-wrapper { max-width: var(--sf-page); }
+  .navbar .nav-center { max-width: 640px; }
+  /* Reading and form pages: a little wider, never stretched */
+  .breadcrumb-container, .detail-wrapper, .shop-wrapper, .about-wrapper, .inbox-wrapper { max-width: min(var(--sf-page), 1480px); }
+
+  /* Card grids: as many ~260px columns as fit */
+  .listing-grid, .search-grid, .favorites-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+}
+
+/* Home › Today's picks: a full row of cards (4, then 6 or 8 on very wide screens) */
+.picks-grid:not(.picks-all) > .product-card:nth-child(n+5) { display: none; }
+@media (min-width: 1100px) {
+  .picks-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .picks-grid > .product-card { width: auto; flex: none; }
+}
+@media (min-width: 2000px) {
+  .picks-grid { grid-template-columns: repeat(6, 1fr); }
+  .picks-grid:not(.picks-all) > .product-card:nth-child(5),
+  .picks-grid:not(.picks-all) > .product-card:nth-child(6) { display: flex; }
+}
+@media (min-width: 2400px) {
+  .picks-grid { grid-template-columns: repeat(8, 1fr); }
+  .picks-grid:not(.picks-all) > .product-card:nth-child(n+5) { display: flex; }
+}
+
+/* Short pages: the footer sits at the bottom of the window instead of leaving a gap under it */
+body:has(> footer.footer) { min-height: 100vh; display: flex; flex-direction: column; }
+body:has(> footer.footer) > main { flex: 1 0 auto; width: 100%; }
+body:has(> footer.footer) > footer.footer { flex-shrink: 0; }

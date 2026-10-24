@@ -109,7 +109,8 @@ function order_info(array $o, array $methods) {
         'totals' => [
             'Subtotal' => sf_peso_exact($o['subtotal']),
             'Discount' => $o['discount'] > 0 ? '−' . sf_peso_exact($o['discount']) : '',
-            'Shipping' => sf_peso_exact($o['shipping']),
+            // Rentals and services aren't shipped: no shipping row unless the order has a product
+            'Shipping' => in_array('products', array_column($o['items'], 'item_type'), true) ? sf_peso_exact($o['shipping']) : '',
             'Tax'      => sf_peso_exact($o['tax']),
             'Total'    => sf_peso_exact($o['total']),
         ],

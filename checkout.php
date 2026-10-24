@@ -13,7 +13,7 @@
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
+    header('Location: index.php?next=' . rawurlencode(basename($_SERVER['REQUEST_URI'] ?? '')));
     exit;
 }
 
@@ -248,10 +248,11 @@ function field($name, $label, $delivery, $errors, $opts = []) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=5" />
+  <link rel="stylesheet" href="css/header.css?v=1" />
 </head>
 <body>
 
-  <?php sf_render_navbar($totals['count']); ?>
+  <?php sf_render_navbar($totals['count'], 'cart'); ?>
 
   <main class="shop-wrapper">
   <?php if ($step === 'done'): ?>
@@ -418,8 +419,8 @@ function field($name, $label, $delivery, $errors, $opts = []) {
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=5"></script>
-  <script src="js/inbox.js?v=3"></script>
+  <script src="js/cart.js?v=6"></script>
+  <script src="js/inbox.js?v=4"></script>
   <script>
     // Prevent double-submitting (e.g. placing the same order twice)
     const form = document.getElementById('checkoutForm');

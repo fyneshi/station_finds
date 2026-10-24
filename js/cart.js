@@ -141,6 +141,7 @@
 
   // Show the right count in the navbar badge on page load
   function init() {
+    if (window.SF_GUEST) return;   // guests have no cart (js/guest.js asks them to log in)
     if (!document.querySelector('.cart-badge')) return;
     post({ action: 'count' })
       .then(r => { if (r && r.success) setBadge(r.count); })

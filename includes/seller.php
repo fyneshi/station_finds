@@ -137,9 +137,10 @@ function sf_payout_balance($conn, $sellerId) {
     ];
 }
 
+// Withdrawals are paid to GCash only, so only GCash withdrawals are listed
 function sf_payout_requests($conn, $sellerId) {
     $stmt = $conn->prepare("SELECT *, UNIX_TIMESTAMP(created_at) AS ts FROM payout_requests
-                            WHERE seller_id = ? ORDER BY created_at DESC, id DESC");
+                            WHERE seller_id = ? AND method = 'gcash' ORDER BY created_at DESC, id DESC");
     $stmt->bind_param("i", $sellerId);
     $stmt->execute();
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -159,6 +160,10 @@ function sf_request_payout($conn, $sellerId, $amount) {
         $profile = $stmt->get_result()->fetch_assoc();
         $stmt->close();
         if (!$profile || $profile['status'] !== 'approved') throw new RuntimeException('Your seller account needs to be approved first.');
+        // Withdrawals go to GCash only
+        if ($profile['payout_method'] !== 'gcash' || !preg_match('/^09\d{9}$/', $profile['payout_account'])) {
+            throw new RuntimeException('Withdrawals are sent to GCash only. Add your GCash number in your seller details first.');
+        }
 
         $balance = sf_payout_balance($conn, $sellerId);
         if ($amount < SF_PAYOUT_MIN) throw new RuntimeException('The minimum payout is ' . sf_peso(SF_PAYOUT_MIN) . '.');

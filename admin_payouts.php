@@ -53,6 +53,7 @@ $requests = $conn->query("SELECT p.*, UNIX_TIMESTAMP(p.created_at) AS ts, UNIX_T
     FROM payout_requests p
     JOIN users u ON u.id = p.seller_id
     LEFT JOIN seller_profiles s ON s.user_id = p.seller_id
+    WHERE p.method = 'gcash'   -- withdrawals are paid to GCash only
     ORDER BY FIELD(p.status, 'flagged', 'pending', 'paid', 'rejected'), p.created_at DESC, p.id DESC")->fetch_all(MYSQLI_ASSOC);
 
 // Each seller's decided requests, newest first, for Payout History in the review modal

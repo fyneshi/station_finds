@@ -1,11 +1,7 @@
 <?php
 session_start();
 
-// Redirect to login page if user is not authenticated
-if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
-    exit;
-}
+// Guests can browse this page; account features ask them to log in (js/guest.js)
 
 // Admins only use the admin dashboard
 if (($_SESSION['role'] ?? '') === 'admin') {
@@ -20,7 +16,7 @@ require_once __DIR__ . '/includes/seller.php';
 
 const CONTACT_HOURLY_LIMIT = 5;   // messages one user can send per hour
 
-$userId = (int) $_SESSION['user_id'];
+$userId = (int) ($_SESSION['user_id'] ?? 0);
 $user   = sf_account_user($conn, $userId);
 $errors = [];
 $sent   = !empty($_SESSION['contact_sent']);
@@ -37,7 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'rating'    => max(0, min(5, (int) ($_POST['rating'] ?? 0))),   // optional, 0 = no rating
         'message'   => trim(str_replace("\r\n", "\n", (string) ($_POST['message'] ?? ''))),
     ];
-    if (!sf_check_csrf()) {
+    if ($userId === 0) {
+        $errors['form'] = 'Please log in to send us a message.';   // guests can read the page; js/guest.js asks them to log in
+    } elseif (!sf_check_csrf()) {
         $errors['form'] = 'Your session expired. Please try again.';
     } else {
         if (mb_strlen($v['full_name']) < 2 || mb_strlen($v['full_name']) > 100) $errors['full_name'] = 'Please enter your full name.';
@@ -82,6 +80,8 @@ $bad = fn($key) => isset($errors[$key]) ? ' has-error' : '';
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=5" />
   <link rel="stylesheet" href="css/about.css?v=3" />
+  <link rel="stylesheet" href="css/header.css?v=1" />
+  <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
 <body>
 
@@ -143,7 +143,7 @@ $bad = fn($key) => isset($errors[$key]) ? ' has-error' : '';
             <textarea id="message" name="message" class="text-input<?php echo $bad('message'); ?>" maxlength="2000" placeholder="Describe your query in detail..." required><?php echo $e($v['message']); ?></textarea>
             <?php echo $err('message'); ?>
           </div>
-          <button type="submit" class="btn-primary">Send message</button>
+          <button type="submit" class="btn-primary"<?php echo $userId ? '' : ' data-guest-gate'; ?>>Send message</button>
         </form>
       </section>
     </div>
@@ -151,7 +151,8 @@ $bad = fn($key) => isset($errors[$key]) ? ' has-error' : '';
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=5"></script>
-  <script src="js/inbox.js?v=3"></script>
+  <script src="js/cart.js?v=6"></script>
+  <script src="js/inbox.js?v=4"></script>
+  <?php sf_render_tabbar(''); ?>
 </body>
 </html>

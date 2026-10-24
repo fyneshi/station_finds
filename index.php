@@ -1,14 +1,19 @@
 <?php
 session_start();
+require_once __DIR__ . '/includes/db_setup.php';
+
+// ?next=page.php: where to go after logging in (e.g. the listing a guest was looking at); ?mode=signup opens Sign up
+$next = sf_safe_next($_GET['next'] ?? '');
+$startMode = ($_GET['mode'] ?? '') === 'signup' ? 'signup' : 'login';
+
 if (isset($_SESSION['user_id'])) {
     if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
         header('Location: admin_dashboard.php');
     } else {
-        header('Location: home.php');
+        header('Location: ' . ($next ?: 'home.php'));
     }
     exit;
 }
-require_once __DIR__ . '/includes/db_setup.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -19,7 +24,7 @@ require_once __DIR__ . '/includes/db_setup.php';
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=8">
 </head>
 <body>
   <div class="app-container">
@@ -171,6 +176,7 @@ require_once __DIR__ . '/includes/db_setup.php';
             <span id="footerPrompt">Don't have an account?</span><br>
             <button type="button" id="footerActionBtn" class="link-action" onclick="toggleAuthMode()">Sign up</button>
           </div>
+          <a href="<?php echo htmlspecialchars($next ?: 'home.php'); ?>" class="guest-browse-link">Browse as a guest</a>
         </div>
 
         <!-- VIEW 2: FORGOT PASSWORD -->
@@ -223,6 +229,8 @@ require_once __DIR__ . '/includes/db_setup.php';
     </div>
   </div>
 
-  <script src="js/script.js?v=6"></script>
+  <script>window.SF_NEXT = <?php echo json_encode($next); ?>;</script>
+  <script src="js/script.js?v=7"></script>
+  <?php if ($startMode === 'signup'): ?><script>setAuthMode('signup');</script><?php endif; ?>
 </body>
 </html>

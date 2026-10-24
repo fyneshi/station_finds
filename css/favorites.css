@@ -634,3 +634,6 @@ body {
 /* Footer "CONTACT US" heading links to contact.php */
 .footer-heading-link { color: inherit; text-decoration: none; }
 .footer-heading-link:hover { color: #d4a843; }
+
+/* Badges never break inside; one that does not fit wraps to the next line */
+.card-badges > span { white-space: nowrap; }

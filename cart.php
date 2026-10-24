@@ -1,9 +1,8 @@
 <?php
 session_start();
 
-// Redirect to login page if user is not authenticated
 if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
+    header('Location: index.php?next=' . rawurlencode(basename($_SERVER['REQUEST_URI'] ?? '')));
     exit;
 }
 
@@ -34,10 +33,12 @@ $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=5" />
+  <link rel="stylesheet" href="css/header.css?v=1" />
+  <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
 <body>
 
-  <?php sf_render_navbar($totals['count']); ?>
+  <?php sf_render_navbar($totals['count'], 'cart'); ?>
 
   <main class="shop-wrapper">
     <h1 class="shop-title">Your cart &ndash; <span id="cartCountTitle"><?php echo $totals['count']; ?></span> item<span id="cartCountPlural"><?php echo $totals['count'] == 1 ? '' : 's'; ?></span></h1>
@@ -90,8 +91,8 @@ $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=5"></script>
-  <script src="js/inbox.js?v=3"></script>
+  <script src="js/cart.js?v=6"></script>
+  <script src="js/inbox.js?v=4"></script>
   <script>
 
     // Apply the server's response to the page
@@ -105,6 +106,7 @@ $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
         if (el) el.textContent = v;
       });
       document.querySelector('[data-row="discount"]').style.display = r.totals.discount ? '' : 'none';
+      document.querySelector('[data-row="shipping"]').style.display = r.totals.ships ? '' : 'none';   // only products ship
 
       const applied = !!r.totals.promo_code;
       document.getElementById('promoApplied').style.display = applied ? '' : 'none';
@@ -190,5 +192,6 @@ $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
       send({ action: 'remove_promo' }).then(() => showPromoMsg('', true)).catch(() => {});
     }
   </script>
+  <?php sf_render_tabbar(''); ?>
 </body>
 </html>

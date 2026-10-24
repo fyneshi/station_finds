@@ -1,11 +1,7 @@
 <?php
 session_start();
 
-// Redirect to login page if user is not authenticated
-if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
-    exit;
-}
+// Guests can browse this page; account features ask them to log in (js/guest.js)
 
 // Admins only use the admin dashboard
 if (($_SESSION['role'] ?? '') === 'admin') {
@@ -17,7 +13,7 @@ require_once __DIR__ . '/includes/db_setup.php';
 require_once __DIR__ . '/includes/shop.php';
 require_once __DIR__ . '/includes/layout.php';
 
-$userId = (int) $_SESSION['user_id'];
+$userId = (int) ($_SESSION['user_id'] ?? 0);
 
 $cards = [
     ['Our Story', 'Started by student developers looking to solve Katipunan study cost limitations.',
@@ -50,6 +46,8 @@ $commitments = [
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=5" />
   <link rel="stylesheet" href="css/about.css?v=3" />
+  <link rel="stylesheet" href="css/header.css?v=1" />
+  <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
 <body>
 
@@ -96,7 +94,8 @@ $commitments = [
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=5"></script>
-  <script src="js/inbox.js?v=3"></script>
+  <script src="js/cart.js?v=6"></script>
+  <script src="js/inbox.js?v=4"></script>
+  <?php sf_render_tabbar(''); ?>
 </body>
 </html>

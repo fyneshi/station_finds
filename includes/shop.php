@@ -11,7 +11,7 @@
 
 require_once __DIR__ . '/db_setup.php';
 
-const SF_SHIPPING_FEE = 120;    // flat fee per order
+const SF_SHIPPING_FEE = 120;    // flat fee per order that has products (rentals and services don't ship)
 const SF_TAX_RATE     = 0.06;   // "Platform Tax (6%)"
 const SF_MAX_QTY      = 10;     // most of one product per order (also capped by its stock)
 const SF_MAX_STOCK    = 9999;   // highest stock a seller can enter
@@ -424,6 +424,52 @@ function sf_buy_now_items($userId) {
     return [$item];
 }
 
+// ── Location filter (Home page, carried on to the marketplace) ──
+// Sellers type their own campus / location, so "Quezon city" and "Quezon City " count as one place.
+const SF_LOCATION_NONE = 'none';   // ?loc=none: listings without a location
+
+function sf_location_key($location) {
+    return mb_strtolower(trim(preg_replace('/\s+/', ' ', (string) $location)));
+}
+
+// Every location used by a listing: key => label (its most used spelling), A–Z
+function sf_location_options(array $catalog) {
+    $spellings = [];
+    foreach ($catalog as $item) {
+        $key = sf_location_key($item['location'] ?? '');
+        if ($key === '') continue;
+        $label = trim(preg_replace('/\s+/', ' ', $item['location']));
+        $spellings[$key][$label] = ($spellings[$key][$label] ?? 0) + 1;
+    }
+    $options = [];
+    foreach ($spellings as $key => $labels) {
+        arsort($labels);
+        $options[$key] = array_key_first($labels);
+    }
+    asort($options, SORT_NATURAL | SORT_FLAG_CASE);
+    return $options;
+}
+
+// The ?loc= the visitor picked, if it's a real option ('' = all locations)
+function sf_location_param(array $options) {
+    $loc = (string) ($_GET['loc'] ?? '');
+    return ($loc === SF_LOCATION_NONE || isset($options[$loc])) ? $loc : '';
+}
+
+// Listings in that location ('' keeps everything)
+function sf_filter_location(array $catalog, $loc) {
+    if ($loc === '') return $catalog;
+    return array_filter($catalog, fn($item) => $loc === SF_LOCATION_NONE
+        ? sf_location_key($item['location'] ?? '') === ''
+        : sf_location_key($item['location'] ?? '') === $loc);
+}
+
+// "Quezon City", "Location not specified" or "" for all locations
+function sf_location_label(array $options, $loc) {
+    if ($loc === SF_LOCATION_NONE) return 'Location not specified';
+    return $options[$loc] ?? '';
+}
+
 // Counts only items still for sale (a listing may have been unpublished or deleted)
 function sf_cart_count($conn, $userId) {
     return array_sum(array_column(sf_cart_items($conn, $userId), 'quantity'));
@@ -509,9 +555,11 @@ function sf_listing_stock($conn, $listingId) {
 function sf_cart_totals(array $items, $promoCode = '') {
     $subtotal = 0;
     $count = 0;
+    $ships = false;   // only products are shipped; rentals and services have no shipping fee
     foreach ($items as $item) {
         $subtotal += $item['line_total'];
         $count    += $item['quantity'];
+        if ($item['type'] === 'products') $ships = true;
     }
 
     // The code is checked again every time (it may have expired or run out since it was applied)
@@ -521,7 +569,7 @@ function sf_cart_totals(array $items, $promoCode = '') {
     $discount = 0;
     if ($promo && $promo['type'] === 'percent') $discount = round($subtotal * (float) $promo['value'] / 100, 2);
     if ($promo && $promo['type'] === 'fixed')   $discount = min((float) $promo['value'], $subtotal);
-    $shipping = ($count === 0 || ($promo && $promo['type'] === 'free_shipping')) ? 0 : SF_SHIPPING_FEE;
+    $shipping = (!$ships || ($promo && $promo['type'] === 'free_shipping')) ? 0 : SF_SHIPPING_FEE;
     $tax      = round(($subtotal - $discount) * SF_TAX_RATE, 2);
     $total    = $subtotal - $discount + $shipping + $tax;
 
@@ -530,6 +578,7 @@ function sf_cart_totals(array $items, $promoCode = '') {
         'subtotal'    => $subtotal,
         'discount'    => $discount,
         'shipping'    => $shipping,
+        'ships'       => $ships,         // false: no shipping row at all (rentals / services only)
         'tax'         => $tax,
         'total'       => $total,
         'promo_code'  => $promo ? $promo['code'] : '',
@@ -544,6 +593,7 @@ function sf_totals_display(array $t) {
         'subtotal'    => sf_peso($t['subtotal']),
         'discount'    => $t['discount'] > 0 ? '−' . sf_peso($t['discount']) : '',
         'shipping'    => $t['shipping'] > 0 ? sf_peso($t['shipping']) : 'Free',
+        'ships'       => $t['ships'],
         'tax'         => sf_peso($t['tax']),
         'total'       => sf_peso($t['total']),
         'promo_code'  => $t['promo_code'],

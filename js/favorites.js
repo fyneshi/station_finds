@@ -112,6 +112,7 @@
   window.SFFavorites = { post: post, cardInfo: cardInfo, refresh: refreshHearts };
 
   function init() {
+    if (window.SF_GUEST) return;   // guests have no saved items
     // Clean up data from the old "removed favorites" approach
     try { localStorage.removeItem('sf_removed_favorites'); } catch (e) {}
     document.cookie = 'sf_removed_favorites=; path=/; max-age=0';

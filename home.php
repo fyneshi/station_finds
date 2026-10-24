@@ -1,11 +1,7 @@
 <?php
 session_start();
 
-// Redirect to login page if user is not authenticated
-if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
-    exit;
-}
+// Guests can browse this page; account features ask them to log in (js/guest.js)
 
 // Admins only use the admin dashboard
 if (($_SESSION['role'] ?? '') === 'admin') {
@@ -14,10 +10,20 @@ if (($_SESSION['role'] ?? '') === 'admin') {
 }
 
 require_once __DIR__ . '/includes/shop.php';
+require_once __DIR__ . '/includes/layout.php';
 
-// Today's picks: the newest listings from sellers, leaving out products that are out of stock
-$picks = array_slice(array_filter(sf_catalog(), fn($item) => $item['type'] !== 'products' || $item['stock'] > 0), 0, 4, true);
-$listingCounts = array_count_values(array_column(sf_catalog(), 'type')) + ['products' => 0, 'rentals' => 0, 'services' => 0];
+// Location filter (?loc=): every location sellers use; listings without one are "not specified"
+$locOptions = sf_location_options(sf_catalog());
+$loc        = sf_location_param($locOptions);
+$locLabel   = sf_location_label($locOptions, $loc);
+$listings   = sf_filter_location(sf_catalog(), $loc);
+$locQuery   = $loc !== '' ? '&loc=' . rawurlencode($loc) : '';
+
+// Today's picks: the newest listings (leaving out products that are out of stock).
+// With a location picked, every listing there is shown.
+$inStock = array_filter($listings, fn($item) => $item['type'] !== 'products' || $item['stock'] > 0);
+$picks   = $loc === '' ? array_slice($inStock, 0, 8, true) : $inStock;   // 4 show; very wide screens show up to 8 (css/responsive.css)
+$listingCounts = array_count_values(array_column($listings, 'type')) + ['products' => 0, 'rentals' => 0, 'services' => 0];
 $e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 
 $username = $_SESSION['username'] ?? 'User';
@@ -34,7 +40,9 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/home.css?v=5" />
+  <link rel="stylesheet" href="css/home.css?v=7" />
+  <link rel="stylesheet" href="css/header.css?v=1" />
+  <link rel="stylesheet" href="css/responsive.css?v=2" />
   <script>
     // Home animations (js/home-motion.js): hide cards only when they'll be animated in.
     // If that script doesn't run, everything is shown after a moment anyway.
@@ -47,132 +55,40 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
 <body>
 
   <!-- ==================== HEADER / NAVBAR ==================== -->
-  <header class="navbar">
-    <div class="nav-container">
-      <!-- Left: Logo & Navigation Links -->
-      <div class="nav-left">
-        <a href="home.php" class="nav-brand">
-          <img src="assets/images/logo2.png" alt="Station Finds" class="nav-logo-img" />
-          <span class="nav-brand-text">
-            <span class="brand-station">STATION</span>
-            <span class="brand-finds">FINDS</span>
-          </span>
-        </a>
-
-        <nav class="nav-links">
-          <a href="home.php" class="nav-link active">Home</a>
-          <a href="marketplace.php" class="nav-link">Marketplace</a>
-          <a href="messages.php" class="nav-link">Messages</a>
-          <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
-          <a href="admin_dashboard.php" class="nav-link" style="color: #f7a827; font-weight: 700;">Admin Dashboard</a>
-          <?php endif; ?>
-        </nav>
-      </div>
-
-      <!-- Middle: Search Bar -->
-      <div class="nav-center">
-        <form action="search.php" method="GET" class="search-bar">
-          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input
-            type="text"
-            name="q"
-            class="search-input"
-            placeholder="Search books, gadgets, dorm find, bike rentals, tutors..."
-          />
-        </form>
-      </div>
-
-      <!-- Right: Action Icons & User Avatar -->
-      <div class="nav-right">
-        <!-- Notification Bell -->
-        <a href="notifications.php" class="icon-btn" title="Notifications" aria-label="Notifications">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-          </svg>
-        </a>
-
-        <!-- Wishlist Heart -->
-        <a href="favorites.php" class="icon-btn" title="Saved Items" aria-label="Saved Items">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-          </svg>
-        </a>
-
-        <!-- Shopping Cart with Badge -->
-        <a href="cart.php" class="icon-btn cart-btn" title="Shopping Cart" aria-label="Shopping Cart">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="9" cy="21" r="1"></circle>
-            <circle cx="20" cy="21" r="1"></circle>
-            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-          </svg>
-          <span class="cart-badge" style="display: none;"></span>
-        </a>
-
-        <!-- User Profile Avatar & Dropdown -->
-        <div class="user-menu-wrapper">
-          <button type="button" class="user-avatar-btn" id="userMenuBtn" onclick="toggleUserDropdown()" aria-label="User profile">
-            <?php echo sf_nav_avatar_html(); ?>
-          </button>
-
-          <div class="user-dropdown" id="userDropdown">
-            <div class="user-dropdown-header">
-              <div class="dropdown-avatar"><?php echo sf_nav_avatar_html(); ?></div>
-              <div class="dropdown-user-details">
-                <span class="dropdown-username"><?php echo htmlspecialchars($username); ?></span>
-                <span class="dropdown-email"><?php echo htmlspecialchars($email); ?></span>
-              </div>
-            </div>
-            <div class="dropdown-divider"></div>
-            <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
-            <a href="admin_dashboard.php" class="dropdown-item" style="color: #f7a827; font-weight: 700;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-              Admin Dashboard
-            </a>
-            <?php endif; ?>
-            <a href="account.php?tab=profile" class="dropdown-item">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              My Profile
-            </a>
-            <div class="dropdown-divider"></div>
-            <a href="logout.php" class="dropdown-item logout-link">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-              </svg>
-              Log out
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
+  <?php sf_render_navbar(sf_cart_count($conn, (int) ($_SESSION['user_id'] ?? 0)), 'home'); ?>
 
   <!-- ==================== MAIN CONTENT ==================== -->
   <main class="main-wrapper">
     <div class="main-container">
 
-      <!-- Location Badge Pill -->
-      <div class="location-pill">
-        <svg class="location-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-          <circle cx="12" cy="10" r="3"></circle>
-        </svg>
-        <span class="location-text"><strong>Quezon City, PH</strong></span>
-      </div>
+      <!-- Location filter: shows only listings in the chosen place -->
+      <form method="get" action="home.php" class="location-filter">
+        <label class="location-pill">
+          <svg class="location-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+          <span class="sr-only">Show listings in</span>
+          <select name="loc" class="location-select" onchange="this.form.submit()">
+            <option value="">All locations</option>
+            <?php foreach ($locOptions as $key => $label): ?>
+            <option value="<?php echo $e($key); ?>"<?php echo $loc === $key ? ' selected' : ''; ?>><?php echo $e($label); ?></option>
+            <?php endforeach; ?>
+            <option value="<?php echo SF_LOCATION_NONE; ?>"<?php echo $loc === SF_LOCATION_NONE ? ' selected' : ''; ?>>Location not specified</option>
+          </select>
+          <svg class="location-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </label>
+        <noscript><button type="submit" class="location-go">Show</button></noscript>
+        <?php if ($loc !== ''): ?>
+        <a href="home.php" class="location-clear">Clear</a>
+        <?php endif; ?>
+      </form>
 
       <!-- ==================== SECTION: TODAY'S PICKS ==================== -->
       <section class="picks-section">
-        <h2 class="section-title">Today's picks for you</h2>
+        <h2 class="section-title"><?php echo $loc === '' ? 'Today\'s picks for you' : ($loc === SF_LOCATION_NONE ? 'Listings without a location' : 'Listings in ' . $e($locLabel)); ?></h2>
 
-        <div class="picks-grid">
+        <div class="picks-grid<?php echo $loc !== '' ? ' picks-all' : ''; ?>">
           <?php foreach ($picks as $id => $pick):
             $isPhoto = $pick['image'] !== SF_PLACEHOLDER_IMAGE;
           ?>
@@ -217,7 +133,9 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
           </article>
           <?php endforeach; ?>
 
-          <?php if (!$picks): ?>
+          <?php if (!$picks && $loc !== ''): ?>
+          <p class="picks-empty">Nothing available <?php echo $loc === SF_LOCATION_NONE ? 'without a location' : 'in ' . $e($locLabel); ?> right now. <a href="home.php">Show all locations</a></p>
+          <?php elseif (!$picks): ?>
           <p class="picks-empty">No listings yet. <a href="listing_form.php">Be the first to sell something</a> or <a href="marketplace.php">browse the marketplace</a>.</p>
           <?php endif; ?>
         </div>
@@ -229,7 +147,7 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
 
         <div class="category-grid">
           <!-- Category 1: Products -->
-          <div class="category-card" onclick="window.location.href='marketplace.php?tab=products'" style="cursor: pointer;">
+          <div class="category-card" onclick="window.location.href='marketplace.php?tab=products<?php echo $e($locQuery); ?>'" style="cursor: pointer;">
             <div class="category-card-top">
               <h3 class="category-name">Products</h3>
               <span class="category-count"><?php echo number_format($listingCounts['products']) . ' listing' . ($listingCounts['products'] === 1 ? '' : 's'); ?></span>
@@ -245,7 +163,7 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
           </div>
 
           <!-- Category 2: Rental -->
-          <div class="category-card" onclick="window.location.href='marketplace.php?tab=rentals'" style="cursor: pointer;">
+          <div class="category-card" onclick="window.location.href='marketplace.php?tab=rentals<?php echo $e($locQuery); ?>'" style="cursor: pointer;">
             <div class="category-card-top">
               <h3 class="category-name">Rental</h3>
               <span class="category-count"><?php echo number_format($listingCounts['rentals']) . ' listing' . ($listingCounts['rentals'] === 1 ? '' : 's'); ?></span>
@@ -261,7 +179,7 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
           </div>
 
           <!-- Category 3: Services -->
-          <div class="category-card" onclick="window.location.href='marketplace.php?tab=services'" style="cursor: pointer;">
+          <div class="category-card" onclick="window.location.href='marketplace.php?tab=services<?php echo $e($locQuery); ?>'" style="cursor: pointer;">
             <div class="category-card-top">
               <h3 class="category-name">Services</h3>
               <span class="category-count"><?php echo number_format($listingCounts['services']) . ' listing' . ($listingCounts['services'] === 1 ? '' : 's'); ?></span>
@@ -333,9 +251,9 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
   </footer>
 
   <!-- Favorite hearts (saved to the database, shared with Marketplace / Search / Favorites) -->
-  <script src="js/favorites.js?v=3"></script>
-  <script src="js/cart.js?v=5"></script>
-  <script src="js/inbox.js?v=3"></script>
+  <script src="js/favorites.js?v=4"></script>
+  <script src="js/cart.js?v=6"></script>
+  <script src="js/inbox.js?v=4"></script>
   <script src="js/home-motion.js?v=2"></script>
   <script>
     function toggleUserDropdown() {
@@ -352,5 +270,6 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
       }
     });
   </script>
+  <?php sf_render_tabbar('home'); ?>
 </body>
 </html>

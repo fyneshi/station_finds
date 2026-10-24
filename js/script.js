@@ -100,7 +100,7 @@ async function handleAuthSubmit(e) {
   btn.disabled = true;
   btn.textContent = currentAuthMode === 'login' ? 'Logging in…' : 'Signing up…';
 
-  let payload = { action: currentAuthMode, email, password };
+  let payload = { action: currentAuthMode, email, password, next: window.SF_NEXT || '' };
 
   if (currentAuthMode === 'signup') {
     const username = document.getElementById('signupUsername').value;

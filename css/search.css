@@ -656,3 +656,6 @@ body {
 .badge-stock-in  { background-color: #ecfdf5; color: #047857; }
 .badge-stock-low { background-color: #fffbeb; color: #b45309; }
 .badge-stock-out { background-color: #fef2f2; color: #b91c1c; }
+
+/* Badges never break inside; one that does not fit wraps to the next line */
+.card-badges > span { white-space: nowrap; }

@@ -1,0 +1,140 @@
+/* ==========================================================================
+   STATION FINDS — SITE HEADER (includes/layout.php › sf_render_navbar)
+   One definition for every buyer/seller page. Loaded after the page's own
+   stylesheet; every rule is scoped to .navbar (and colours are fixed here),
+   so page styles can't change the header's size or look.
+   ========================================================================== */
+.navbar {
+  --hdr-bg: #18232A;
+  --hdr-yellow: #d4a843;
+  --hdr-muted: #94a3b8;
+  position: sticky; top: 0; z-index: 1000;
+  background-color: var(--hdr-bg);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.4;
+}
+.navbar *, .navbar *::before, .navbar *::after { box-sizing: border-box; }
+
+.navbar .nav-container {
+  max-width: var(--sf-page, 1240px); min-height: 64px; margin: 0 auto; padding: 12px 24px;
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+}
+
+/* Left: logo and links */
+.navbar .nav-left { display: flex; align-items: center; gap: 32px; }
+.navbar .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.navbar .nav-logo-img { width: 90px; height: 40px; object-fit: contain; display: block; }
+.navbar .nav-brand-text { display: flex; align-items: center; gap: 4px; font-size: 15px; font-weight: 800; letter-spacing: 0.5px; }
+.navbar .brand-station { color: #ffffff; }
+.navbar .brand-finds { color: var(--hdr-yellow); }
+.navbar .nav-links { display: flex; align-items: center; gap: 24px; margin: 0; padding: 0; }
+.navbar .nav-link {
+  position: relative; padding: 0; color: var(--hdr-muted); text-decoration: none;
+  font-size: 14.5px; font-weight: 600; transition: color 0.15s;
+}
+.navbar .nav-link::after { content: none; }
+.navbar .nav-link:hover, .navbar .nav-link.active { color: #ffffff; }
+.navbar .nav-link.nav-admin { color: #f7a827; font-weight: 700; }
+
+/* Middle: search */
+.navbar .nav-center { flex: 1; max-width: 520px; }
+.navbar .search-bar {
+  display: flex; align-items: center; gap: 10px; height: 36px; margin: 0; padding: 0 14px;
+  background: #ffffff; border: 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+.navbar .search-icon { color: #64748b; flex-shrink: 0; }
+.navbar .search-input {
+  width: 100%; height: 100%; margin: 0; padding: 0; border: none; background: transparent; outline: none;
+  font-family: inherit; font-size: 13.5px; color: #1e293b;
+}
+.navbar .search-input::placeholder { color: var(--hdr-muted); }
+
+/* Right: icons and the account menu (or Log in / Sign up for guests) */
+.navbar .nav-right { display: flex; align-items: center; gap: 18px; }
+.navbar .icon-btn {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 6px; border: none; border-radius: 8px;
+  background: transparent; color: #ffffff; cursor: pointer; text-decoration: none; transition: background-color 0.15s;
+}
+.navbar .icon-btn:hover, .navbar .icon-btn.active { background-color: rgba(255, 255, 255, 0.1); }
+.navbar .cart-badge {
+  position: absolute; top: 1px; right: -2px; display: flex; align-items: center; justify-content: center;
+  min-width: 17px; height: 17px; padding: 0 3px; border-radius: 9px;
+  background: var(--hdr-yellow); color: #111827; font-size: 10px; font-weight: 800; line-height: 1;
+}
+.navbar .user-menu-wrapper { position: relative; }
+.navbar .user-avatar-btn {
+  display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0;
+  border: none; border-radius: 50%; overflow: hidden; background: var(--hdr-yellow);
+  color: #ffffff; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.navbar .user-dropdown {
+  display: none; position: absolute; top: calc(100% + 12px); right: 0; z-index: 1100;
+  min-width: 220px; padding: 8px 0; background: #ffffff; border: 1px solid #ebdccb; border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+.navbar .user-dropdown.show { display: block; }
+.navbar .user-dropdown-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.navbar .dropdown-avatar {
+  display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; flex-shrink: 0;
+  border-radius: 50%; overflow: hidden; background: var(--hdr-yellow); color: #ffffff; font-size: 14px; font-weight: 700;
+}
+.navbar .dropdown-username { display: block; font-size: 14px; font-weight: 700; color: #18232A; }
+.navbar .dropdown-email { display: block; font-size: 12px; color: #64748b; }
+.navbar .dropdown-divider { height: 1px; margin: 6px 0; background: #f1f5f9; }
+.navbar .dropdown-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 16px;
+  color: #18232A; text-decoration: none; font-size: 13px; font-weight: 500;
+}
+.navbar .dropdown-item:hover { background: #f8fafc; }
+.navbar .dropdown-item.logout-link { color: #ef4444; }
+.navbar .dropdown-item.nav-admin { color: #f7a827; font-weight: 700; }
+
+/* Guests: Log in / Sign up instead of the account picture */
+.navbar .nav-auth-btn {
+  display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 16px;
+  border-radius: 8px; background: var(--hdr-yellow); color: #ffffff;
+  font-size: 13.5px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: filter 0.15s;
+}
+.navbar .nav-auth-btn:hover { filter: brightness(1.07); }
+.navbar .nav-auth-btn .nav-auth-short { display: none; }
+
+/* Tablets and phones (layout of the rows: css/responsive.css) */
+@media (max-width: 900px) {
+  .navbar .nav-brand-text { display: none; }
+  .navbar .nav-center, .navbar .search-bar, .navbar .search-input { min-width: 0; }
+}
+@media (max-width: 640px) {
+  .navbar .nav-container { min-height: 0; }
+  .navbar .nav-right { gap: 2px; }
+  .navbar .nav-auth-btn { height: 32px; padding: 0 12px; margin-left: 6px; font-size: 12.5px; }
+  .navbar .nav-auth-btn .nav-auth-long { display: none; }
+  .navbar .nav-auth-btn .nav-auth-short { display: inline; }
+}
+
+/* ── Log in / Sign up prompt for guests (js/guest.js) ── */
+.sf-guest-modal {
+  width: min(400px, calc(100% - 32px)); margin: auto; padding: 26px 24px 22px; border: 0; border-radius: 16px;
+  background: #ffffff; color: #18232A; text-align: center; box-shadow: 0 20px 50px rgba(24, 35, 42, 0.3);
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.sf-guest-modal::backdrop { background: rgba(24, 35, 42, 0.55); }
+.sf-guest-modal .sf-guest-icon {
+  display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-bottom: 12px;
+  border-radius: 50%; background: #fdf3dc; color: #b8862b;
+}
+.sf-guest-modal h2 { margin: 0 0 6px; font-size: 19px; font-weight: 800; }
+.sf-guest-modal p { margin: 0 0 20px; font-size: 13.5px; line-height: 1.5; color: #64748b; }
+.sf-guest-modal .sf-guest-actions { display: flex; gap: 10px; }
+.sf-guest-modal .sf-guest-actions a {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; height: 42px; border-radius: 10px;
+  font-size: 14px; font-weight: 700; text-decoration: none;
+}
+.sf-guest-modal .sf-guest-login { background: #d4a843; color: #ffffff; }
+.sf-guest-modal .sf-guest-signup { border: 1.5px solid #cbd5e1; color: #18232A; }
+.sf-guest-modal .sf-guest-later {
+  margin-top: 14px; padding: 4px; border: 0; background: none; color: #64748b;
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}

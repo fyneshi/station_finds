@@ -109,8 +109,9 @@ function sf_handle_comment_post($conn, array $item, $userId, $pageLink) {
     $draft = ['text' => '', 'parent' => 0, 'mention' => 0];
     if ($_SERVER['REQUEST_METHOD'] !== 'POST' || ($_POST['action'] ?? '') !== 'comment') return [null, $draft];
     $draft = ['text' => (string) ($_POST['body'] ?? ''), 'parent' => (int) ($_POST['parent'] ?? 0), 'mention' => (int) ($_POST['mention'] ?? 0)];
-    $error = !sf_check_csrf() ? 'Your session expired. Please try again.'
-        : sf_add_comment($conn, $item + ['listing_id' => (int) substr($item['id'], 8)], (int) $userId, $draft['text'], $draft['parent'] ?: null, $pageLink, $draft['mention'] ?: null);
+    $error = (int) $userId <= 0 ? 'Please log in to comment.'   // guests can read, not post
+        : (!sf_check_csrf() ? 'Your session expired. Please try again.'
+        : sf_add_comment($conn, $item + ['listing_id' => (int) substr($item['id'], 8)], (int) $userId, $draft['text'], $draft['parent'] ?: null, $pageLink, $draft['mention'] ?: null));
     if (!$error) {
         header('Location: ' . $pageLink . '#comments');
         exit;
@@ -205,5 +206,46 @@ function sf_render_comments(array $item, array $comments, $pageLink, $csrf, $err
           }
           <?php if ($error): ?>document.getElementById('comments').scrollIntoView();   // show what needs fixing<?php endif; ?>
         </script>
+    <?php
+}
+
+// Ratings & Reviews card (product, rental and service pages): reviews buyers left on completed orders,
+// worded for the listing type. $reviews comes from sf_listing_reviews().
+function sf_render_reviews(array $item, array $reviews) {
+    $e    = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
+    $when = fn($ts) => date('M j, Y', $ts);
+    $words = [
+        'products' => ['purchase', 'Buyer', 'Reviews are tied to completed orders and appear after the item is delivered.', 'Bought this before?', 'a completed order'],
+        'rentals'  => ['completed rental', 'Renter', 'Reviews are tied to completed transactions and appear after the rental period ends.', 'Rented this before?', 'a completed rental'],
+        'services' => ['completed service', 'Client', 'Reviews are tied to completed bookings and appear after the service is done.', 'Booked this before?', 'a completed booking'],
+    ][$item['type']] ?? ['purchase', 'Buyer', '', 'Bought this before?', 'a completed order'];
+    [$what, $nobody, $note, $again, $from] = $words;
+    $n = count($reviews);
+    ?>
+        <section class="comments-card reviews-card" aria-labelledby="reviewsTitle">
+          <h3 class="comments-title" id="reviewsTitle">Ratings &amp; Reviews</h3>
+          <div class="reviews-summary">
+            <span class="reviews-avg"><?php echo $n ? number_format(array_sum(array_column($reviews, 'rating')) / $n, 1) : '–'; ?></span>
+            <span class="reviews-count"><?php echo $n; ?> verified <?php echo $what . ($n === 1 ? '' : 's'); ?></span>
+          </div>
+          <p class="reviews-note"><?php echo $note; ?></p>
+          <?php foreach ($reviews as $rv): $who = $rv['name'] ?: $nobody; ?>
+          <article class="review-card">
+            <div class="comment-header">
+              <div class="comment-user">
+                <div class="comment-avatar small"><?php echo sf_avatar_html($who, $rv['avatar'] ?? ''); ?></div>
+                <?php if ($rv['user_id'] && $rv['avatar'] !== null): ?><a href="profile.php?id=<?php echo (int) $rv['user_id']; ?>" class="comment-author"><?php echo $e($who); ?></a><?php else: ?><span class="comment-author"><?php echo $e($who); ?></span><?php endif; ?>
+              </div>
+              <span class="comment-date"><?php echo $when($rv['ts']); ?><?php
+                if ($rv['units'] && $item['type'] === 'rentals') echo ' · ' . (int) $rv['units'] . '-day rental';
+                elseif ($rv['units'] && $item['type'] === 'services') echo ' · ' . (int) $rv['units'] . ' ' . $e(sf_unit_word($item['unit'], (int) $rv['units']));
+              ?></span>
+            </div>
+            <?php if (trim((string) $rv['message']) !== ''): ?><p class="comment-text"><?php echo nl2br($e($rv['message'])); ?></p><?php endif; ?>
+            <p class="review-meta">Listing rating: <?php echo (int) $rv['rating']; ?> / 5 · Verified <?php echo $what; ?></p>
+          </article>
+          <?php endforeach; ?>
+          <p class="reviews-foot"><?php echo $n ? $again : 'No reviews yet.'; ?> Review this listing from <?php echo $from; ?> in your <a href="account.php">Buyer Dashboard</a>.</p>
+        </section>
     <?php
 }

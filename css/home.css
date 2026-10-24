@@ -491,6 +491,8 @@ body {
 
 .card-badges {
   display: flex;
+  flex-wrap: wrap;           /* a badge that does not fit moves to the next line whole */
+  align-items: flex-start;
   gap: 6px;
   margin-bottom: 8px;
 }
@@ -502,6 +504,7 @@ body {
   padding: 3px 7px;
   border-radius: 4px;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .badge-product, .badge-rental, .badge-service {
@@ -839,3 +842,18 @@ html:not(.js-motion) .section-title::after { transform: scaleX(1); }
 .badge-stock-in  { background-color: #ecfdf5; color: #047857; }
 .badge-stock-low { background-color: #fffbeb; color: #b45309; }
 .badge-stock-out { background-color: #fef2f2; color: #b91c1c; }
+
+/* ── Location filter (the pill above Today's picks) ── */
+.location-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
+.location-filter .location-pill { margin-bottom: 0; position: relative; cursor: pointer; }
+.location-filter .location-pill:focus-within { border-color: var(--primary-yellow); box-shadow: 0 0 0 3px rgba(247, 168, 39, 0.18); }
+.location-select {
+  appearance: none; -webkit-appearance: none; border: 0; background: transparent; outline: none; cursor: pointer;
+  max-width: 260px; padding: 0 18px 0 0; margin-right: -18px;
+  font: inherit; font-weight: 700; color: #1e293b; text-overflow: ellipsis;
+}
+.location-caret { color: #64748b; pointer-events: none; }
+.location-clear { font-size: 13px; font-weight: 600; color: #64748b; text-decoration: underline; }
+.location-clear:hover { color: #1e293b; }
+.location-go { height: 34px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--primary-yellow); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

@@ -1,11 +1,7 @@
 <?php
 session_start();
 
-// Redirect to login page if user is not authenticated
-if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
-    exit;
-}
+// Guests can browse this page; account features ask them to log in (js/guest.js)
 
 // Admins only use the admin dashboard
 if (($_SESSION['role'] ?? '') === 'admin') {
@@ -14,6 +10,7 @@ if (($_SESSION['role'] ?? '') === 'admin') {
 }
 
 require_once __DIR__ . '/includes/shop.php';
+require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/reports.php';
 require_once __DIR__ . '/includes/inbox.php';
 require_once __DIR__ . '/includes/comments.php';
@@ -34,7 +31,7 @@ $e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $photos = sf_gallery($item);
 $isPlaceholder = $item['image'] === SF_PLACEHOLDER_IMAGE;
 
-$userId    = (int) $_SESSION['user_id'];
+$userId    = (int) ($_SESSION['user_id'] ?? 0);
 $listingId = (int) substr($item['id'], 8);
 $pageLink  = 'rental_detail.php?id=' . $item['id'];
 $isOwner   = $item['seller_id'] === $userId;
@@ -57,99 +54,13 @@ $when      = fn($ts) => date('M j, Y', $ts);
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/detail.css?v=12" />
+  <link rel="stylesheet" href="css/header.css?v=1" />
+  <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
 <body>
 
   <!-- ==================== HEADER / NAVBAR ==================== -->
-  <header class="navbar">
-    <div class="nav-container">
-      <!-- Left: Logo & Navigation Links -->
-      <div class="nav-left">
-        <a href="home.php" class="nav-brand">
-          <img src="assets/images/logo2.png" alt="Station Finds" class="nav-logo-img" />
-          <span class="nav-brand-text">
-            <span class="brand-station">STATION</span>
-            <span class="brand-finds">FINDS</span>
-          </span>
-        </a>
-
-        <nav class="nav-links">
-          <a href="home.php" class="nav-link">Home</a>
-          <a href="marketplace.php" class="nav-link active">Marketplace</a>
-          <a href="messages.php" class="nav-link">Messages</a>
-          <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
-          <a href="admin_dashboard.php" class="nav-link" style="color: #f7a827; font-weight: 700;">Admin Dashboard</a>
-          <?php endif; ?>
-        </nav>
-      </div>
-
-      <!-- Middle: Search Bar -->
-      <div class="nav-center">
-        <form action="search.php" method="GET" class="search-bar">
-          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input type="text" name="q" class="search-input" placeholder="Search books, gadgets, dorm find, bike rentals, tutors..." />
-        </form>
-      </div>
-
-      <!-- Right: Action Icons & User Avatar -->
-      <div class="nav-right">
-        <a href="notifications.php" class="icon-btn" title="Notifications" aria-label="Notifications">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-          </svg>
-        </a>
-        <a href="favorites.php" class="icon-btn" title="Saved Items" aria-label="Saved Items">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-          </svg>
-        </a>
-        <a href="cart.php" class="icon-btn cart-btn" title="Shopping Cart" aria-label="Shopping Cart">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="9" cy="21" r="1"></circle>
-            <circle cx="20" cy="21" r="1"></circle>
-            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-          </svg>
-          <span class="cart-badge" style="display: none;"></span>
-        </a>
-
-        <!-- User Profile Avatar & Dropdown -->
-        <div class="user-menu-wrapper">
-          <button type="button" class="user-avatar-btn" id="userMenuBtn" onclick="toggleUserDropdown()" aria-label="User profile">
-            <?php echo sf_nav_avatar_html(); ?>
-          </button>
-          <div class="user-dropdown" id="userDropdown">
-            <div class="user-dropdown-header">
-              <div class="dropdown-avatar"><?php echo sf_nav_avatar_html(); ?></div>
-              <div class="dropdown-user-details">
-                <span class="dropdown-username"><?php echo htmlspecialchars($username); ?></span>
-                <span class="dropdown-email"><?php echo htmlspecialchars($email); ?></span>
-              </div>
-            </div>
-            <div class="dropdown-divider"></div>
-            <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
-            <a href="admin_dashboard.php" class="dropdown-item" style="color: #f7a827; font-weight: 700;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-              Admin Dashboard
-            </a>
-            <?php endif; ?>
-            <a href="account.php?tab=profile" class="dropdown-item">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-              My Profile
-            </a>
-            <div class="dropdown-divider"></div>
-            <a href="logout.php" class="dropdown-item logout-link">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-              Log out
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
+  <?php sf_render_navbar(sf_cart_count($conn, (int) ($_SESSION['user_id'] ?? 0)), 'market'); ?>
 
   <!-- ==================== BREADCRUMB ==================== -->
   <div class="breadcrumb-container">
@@ -186,29 +97,7 @@ $when      = fn($ts) => date('M j, Y', $ts);
         <?php sf_render_comments($item, $comments, $pageLink, $csrf, $commentError, $commentDraft, ['Questions & Comments', 'Ask a question before booking…', 'No questions yet. Ask the owner anything before you book.']); ?>
 
         <!-- Ratings & Reviews -->
-        <section class="comments-card reviews-card" aria-labelledby="reviewsTitle">
-          <h3 class="comments-title" id="reviewsTitle">Ratings &amp; Reviews</h3>
-          <div class="reviews-summary">
-            <span class="reviews-avg"><?php echo $reviews ? number_format(array_sum(array_column($reviews, 'rating')) / count($reviews), 1) : '–'; ?></span>
-            <span class="reviews-count"><?php echo count($reviews); ?> verified completed rental<?php echo count($reviews) === 1 ? '' : 's'; ?></span>
-          </div>
-          <p class="reviews-note">Reviews are tied to completed transactions and appear after the rental period ends.</p>
-
-          <?php foreach ($reviews as $rv): $who = $rv['name'] ?: 'Renter'; ?>
-          <article class="review-card">
-            <div class="comment-header">
-              <div class="comment-user">
-                <div class="comment-avatar small"><?php echo sf_avatar_html($who, $rv['avatar'] ?? ''); ?></div>
-                <?php if ($rv['user_id'] && $rv['avatar'] !== null): ?><a href="profile.php?id=<?php echo (int) $rv['user_id']; ?>" class="comment-author"><?php echo $e($who); ?></a><?php else: ?><span class="comment-author"><?php echo $e($who); ?></span><?php endif; ?>
-              </div>
-              <span class="comment-date"><?php echo $when($rv['ts']); ?><?php echo $rv['units'] ? ' · ' . (int) $rv['units'] . '-day rental' : ''; ?></span>
-            </div>
-            <?php if (trim((string) $rv['message']) !== ''): ?><p class="comment-text"><?php echo nl2br($e($rv['message'])); ?></p><?php endif; ?>
-            <p class="review-meta">Listing rating: <?php echo (int) $rv['rating']; ?> / 5 · Verified completed rental</p>
-          </article>
-          <?php endforeach; ?>
-          <p class="reviews-foot"><?php echo $reviews ? 'Rented this before?' : 'No reviews yet.'; ?> Review this listing and owner from a completed rental in your <a href="account.php">Buyer Dashboard</a>.</p>
-        </section>
+        <?php sf_render_reviews($item, $reviews); ?>
       </div>
 
       <!-- RIGHT COLUMN: RENTAL INFO, BOOKING, OWNER, REPORTS -->
@@ -219,7 +108,25 @@ $when      = fn($ts) => date('M j, Y', $ts);
         </div>
 
         <h1 class="detail-title"><?php echo $e($item['detail_title']); ?></h1>
+        <?php if ($item['rating'] > 0): ?>
+        <!-- Rating (same as the product and service pages) -->
+        <div class="detail-rating-row">
+          <span class="rating-star">★ <?php echo number_format($item['rating'], 1); ?></span>
+          <?php if ($item['reviews'] > 0): ?>
+          <span class="rating-count">(<?php echo (int) $item['reviews']; ?> review<?php echo $item['reviews'] == 1 ? '' : 's'; ?>)</span>
+          <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
         <div class="detail-price-main"><?php echo sf_price_html($item); ?></div>
+
+        <?php if ($item['description'] !== ''): ?>
+        <!-- Description (same section as the product and service pages) -->
+        <div class="detail-section">
+          <h4 class="detail-section-heading">Description</h4>
+          <p class="detail-description"><?php echo nl2br($e($item['description'])); ?></p>
+        </div>
+        <?php endif; ?>
 
         <!-- Rental specifications -->
         <div class="detail-section">
@@ -230,9 +137,6 @@ $when      = fn($ts) => date('M j, Y', $ts);
             <div class="spec-prop"><span class="spec-label">Location:</span> <span class="spec-value"><?php echo $e($item['location'] ?: 'Ask the owner'); ?></span></div>
             <div class="spec-prop"><span class="spec-label">Rent for:</span> <span class="spec-value"><?php echo (int) min($item['units']) . '–' . (int) max($item['units']); ?> days</span></div>
           </div>
-          <?php if ($item['description'] !== ''): ?>
-          <p class="detail-description"><?php echo nl2br($e($item['description'])); ?></p>
-          <?php endif; ?>
         </div>
 
         <!-- Duration & dates -->
@@ -411,8 +315,8 @@ $when      = fn($ts) => date('M j, Y', $ts);
     </form>
   </dialog>
 
-  <script src="js/cart.js?v=5"></script>
-  <script src="js/inbox.js?v=3"></script>
+  <script src="js/cart.js?v=6"></script>
+  <script src="js/inbox.js?v=4"></script>
   <script>
     const ITEM_ID = <?php echo json_encode($item['id']); ?>;
     const DAILY_RATE = <?php echo json_encode($item['price']); ?>;
@@ -553,5 +457,6 @@ $when      = fn($ts) => date('M j, Y', $ts);
       }
     });
   </script>
+  <?php sf_render_tabbar('market'); ?>
 </body>
 </html>

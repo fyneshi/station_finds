@@ -1,9 +1,8 @@
 <?php
 session_start();
 
-// Redirect to login page if user is not authenticated
 if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
+    header('Location: index.php?next=' . rawurlencode(basename($_SERVER['REQUEST_URI'] ?? '')));
     exit;
 }
 
@@ -41,7 +40,6 @@ if ($existing && !isset($categories[$existing['category']])) {
         if (isset($cats[$existing['category']])) { $categories[$existing['category']] = $cats[$existing['category']]; break; }
     }
 }
-$banks      = ['BDO', 'BPI', 'Metrobank', 'Landbank', 'UnionBank', 'Security Bank', 'PNB', 'RCBC', 'China Bank'];
 $errors     = [];
 $posted     = [];
 
@@ -112,23 +110,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
     } else {
-        $method = ($_POST['payout_method'] ?? '') === 'bank' ? 'bank' : 'gcash';
+        // Earnings are withdrawn to GCash only
         $posted = [
-            'payout_method'  => $method,
+            'payout_method'  => 'gcash',
             'payout_name'    => clean_line($_POST['payout_name'] ?? '', 100),
-            'payout_bank'    => $method === 'bank' ? (string) ($_POST['payout_bank'] ?? '') : '',
-            'payout_account' => $method === 'bank'
-                ? preg_replace('/[\s-]/', '', (string) ($_POST['bank_account'] ?? ''))
-                : trim((string) ($_POST['gcash_number'] ?? '')),
+            'payout_bank'    => '',
+            'payout_account' => trim((string) ($_POST['gcash_number'] ?? '')),
         ];
         if (mb_strlen($posted['payout_name']) < 2 || mb_strlen($posted['payout_name']) > 100) $errors['payout_name'] = 'Enter the name on the account.';
-        if ($method === 'gcash') {
-            $posted['payout_account'] = ph_mobile($posted['payout_account']) ?? $posted['payout_account'];
-            if (!preg_match('/^09\d{9}$/', $posted['payout_account'])) $errors['gcash_number'] = 'Enter your GCash number, e.g. 0917 123 4567.';
-        } else {
-            if (!in_array($posted['payout_bank'], $banks, true)) $errors['payout_bank'] = 'Please choose your bank.';
-            if (!preg_match('/^\d{8,20}$/', $posted['payout_account'])) $errors['bank_account'] = 'Account numbers are 8–20 digits.';
-        }
+        $posted['payout_account'] = ph_mobile($posted['payout_account']) ?? $posted['payout_account'];
+        if (!preg_match('/^09\d{9}$/', $posted['payout_account'])) $errors['gcash_number'] = 'Enter your GCash number, e.g. 0917 123 4567.';
 
         if (!$errors) {
             $d = array_merge($data, $posted);
@@ -195,6 +186,8 @@ $payoutMethod = $posted['payout_method'] ?? ($data['payout_method'] ?? 'gcash');
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=5" />
   <link rel="stylesheet" href="css/account.css?v=21" />
+  <link rel="stylesheet" href="css/header.css?v=1" />
+  <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
 <body>
 
@@ -316,45 +309,23 @@ $payoutMethod = $posted['payout_method'] ?? ($data['payout_method'] ?? 'gcash');
           <span class="form-label">Send my earnings to</span>
           <div class="choice-grid">
             <label class="choice">
-              <input type="radio" name="payout_method" value="gcash"<?php echo $payoutMethod !== 'bank' ? ' checked' : ''; ?> />
+              <input type="radio" name="payout_method" value="gcash" checked />
               <span class="choice-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg></span>
               <span class="choice-text"><strong>GCash</strong><span>Sent to your GCash wallet</span></span>
               <span class="choice-check">&#10003;</span>
             </label>
-            <label class="choice">
-              <input type="radio" name="payout_method" value="bank"<?php echo $payoutMethod === 'bank' ? ' checked' : ''; ?> />
-              <span class="choice-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"></line><line x1="6" y1="18" x2="6" y2="11"></line><line x1="10" y1="18" x2="10" y2="11"></line><line x1="14" y1="18" x2="14" y2="11"></line><line x1="18" y1="18" x2="18" y2="11"></line><polygon points="12 2 20 7 4 7"></polygon></svg></span>
-              <span class="choice-text"><strong>Bank transfer</strong><span>Sent to a Philippine bank account</span></span>
-              <span class="choice-check">&#10003;</span>
-            </label>
           </div>
+          <span class="field-hint">Earnings are withdrawn to GCash only.</span>
         </div>
         <div class="form-field">
           <label class="form-label" for="payout_name">Account name</label>
           <input type="text" id="payout_name" name="payout_name" class="text-input<?php echo $bad('payout_name'); ?>" value="<?php echo $v('payout_name'); ?>" maxlength="100" placeholder="Name exactly as it appears on the account" autocomplete="name" required />
           <?php echo $err('payout_name'); ?>
         </div>
-        <div class="form-field" data-show-for="gcash"<?php echo $payoutMethod === 'bank' ? ' hidden' : ''; ?>>
+        <div class="form-field">
           <label class="form-label" for="gcash_number">GCash number</label>
-          <input type="tel" id="gcash_number" name="gcash_number" class="text-input<?php echo $bad('gcash_number'); ?>" value="<?php echo $payoutMethod === 'gcash' ? $v('payout_account') : ''; ?>" maxlength="20" placeholder="0917 123 4567" />
+          <input type="tel" id="gcash_number" name="gcash_number" class="text-input<?php echo $bad('gcash_number'); ?>" value="<?php echo $payoutMethod === 'gcash' ? $v('payout_account') : ''; ?>" maxlength="20" placeholder="0917 123 4567" required />
           <?php echo $err('gcash_number'); ?>
-        </div>
-        <div class="field-row-split" data-show-for="bank"<?php echo $payoutMethod === 'bank' ? '' : ' hidden'; ?>>
-          <div class="form-field">
-            <label class="form-label" for="payout_bank">Bank</label>
-            <select id="payout_bank" name="payout_bank" class="text-input<?php echo $bad('payout_bank'); ?>">
-              <option value="">Select your bank</option>
-              <?php foreach ($banks as $bank): ?>
-              <option<?php echo ($posted['payout_bank'] ?? $data['payout_bank'] ?? '') === $bank ? ' selected' : ''; ?>><?php echo $bank; ?></option>
-              <?php endforeach; ?>
-            </select>
-            <?php echo $err('payout_bank'); ?>
-          </div>
-          <div class="form-field">
-            <label class="form-label" for="bank_account">Account number</label>
-            <input type="text" id="bank_account" name="bank_account" class="text-input<?php echo $bad('bank_account'); ?>" value="<?php echo $payoutMethod === 'bank' ? $v('payout_account') : ''; ?>" maxlength="24" inputmode="numeric" />
-            <?php echo $err('bank_account'); ?>
-          </div>
         </div>
       </div>
       <?php endif; ?>
@@ -368,15 +339,8 @@ $payoutMethod = $posted['payout_method'] ?? ($data['payout_method'] ?? 'gcash');
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=5"></script>
-  <script src="js/inbox.js?v=3"></script>
-  <script>
-    // Payout step: show the GCash or bank fields for the chosen method
-    document.querySelectorAll('input[name="payout_method"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        document.querySelectorAll('[data-show-for]').forEach(el => { el.hidden = el.dataset.showFor !== radio.value; });
-      });
-    });
-  </script>
+  <script src="js/cart.js?v=6"></script>
+  <script src="js/inbox.js?v=4"></script>
+  <?php sf_render_tabbar('account'); ?>
 </body>
 </html>

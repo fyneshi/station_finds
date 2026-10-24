@@ -230,7 +230,7 @@ if (isset($_SESSION['user_id'])) {
   </div>
 
   <script>window.SF_NEXT = <?php echo json_encode($next); ?>;</script>
-  <script src="js/script.js?v=7"></script>
+  <script src="js/script.js?v=8"></script>
   <?php if ($startMode === 'signup'): ?><script>setAuthMode('signup');</script><?php endif; ?>
 </body>
 </html>

@@ -32,7 +32,8 @@ function setAuthMode(mode) {
     replayAnimation(document.getElementById('authHeading'), 'sf-swap');
     replayAnimation(document.getElementById('authSubtitle'), 'sf-swap');
   }
-  document.getElementById('authSubtitle').textContent = isLogin 
+  document.getElementById('authHeading').textContent = isLogin ? 'Welcome back' : 'Welcome';   // new users haven't been here before
+  document.getElementById('authSubtitle').textContent = isLogin
     ? 'Log in to continue to your account.' 
     : 'Sign up to continue to your account.';
   document.getElementById('forgotPasswordLink').style.display = isLogin ? 'inline-block' : 'none';

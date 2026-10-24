@@ -90,7 +90,7 @@ function sf_render_navbar($cartCount = 0, $active = '') {
   </header>
   <?php if ($guest): ?>
   <script>window.SF_GUEST = true; window.SF_LOGIN = <?php echo json_encode($loginLink); ?>;</script>
-  <script src="js/guest.js?v=1" defer></script>
+  <script src="js/guest.js?v=2" defer></script>
   <?php else: ?>
   <script>
     // Close the account menu when clicking anywhere else

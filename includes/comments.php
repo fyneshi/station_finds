@@ -113,7 +113,8 @@ function sf_handle_comment_post($conn, array $item, $userId, $pageLink) {
         : (!sf_check_csrf() ? 'Your session expired. Please try again.'
         : sf_add_comment($conn, $item + ['listing_id' => (int) substr($item['id'], 8)], (int) $userId, $draft['text'], $draft['parent'] ?: null, $pageLink, $draft['mention'] ?: null));
     if (!$error) {
-        header('Location: ' . $pageLink . '#comments');
+        // After a reply, land on that question with its replies open
+        header('Location: ' . $pageLink . ($draft['parent'] ? '#comment-' . $draft['parent'] : '#comments'));
         exit;
     }
     return [$error, $draft];
@@ -155,17 +156,8 @@ function sf_render_comments(array $item, array $comments, $pageLink, $csrf, $err
               <?php $person($q); ?>
               <button type="button" class="comment-reply-btn" aria-expanded="<?php echo $open ? 'true' : 'false'; ?>" aria-controls="reply-<?php echo $qid; ?>" onclick="toggleReply(this)">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                Reply<?php echo $q['replies'] ? ' · ' . count($q['replies']) : ''; ?>
+                Reply
               </button>
-              <?php foreach ($q['replies'] as $r): ?>
-              <div class="comment-reply" id="comment-<?php echo (int) $r['id']; ?>">
-                <?php $person($r, true); ?>
-                <button type="button" class="comment-reply-btn" aria-controls="reply-<?php echo $qid; ?>" data-mention="<?php echo (int) $r['id']; ?>" data-name="<?php echo $e($r['name']); ?>" onclick="replyTo(this)">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                  Reply
-                </button>
-              </div>
-              <?php endforeach; ?>
               <form method="post" action="<?php echo $e($pageLink); ?>#comments" class="comment-form reply-form" id="reply-<?php echo $qid; ?>"<?php echo $open ? '' : ' hidden'; ?>>
                 <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
                 <input type="hidden" name="action" value="comment" />
@@ -175,6 +167,24 @@ function sf_render_comments(array $item, array $comments, $pageLink, $csrf, $err
                 <?php if ($error && $open): ?><p class="comment-error" role="alert"><?php echo $e($error); ?></p><?php endif; ?>
                 <button type="submit" class="btn-comment-submit">Reply</button>
               </form>
+              <?php if ($q['replies']): $n = count($q['replies']); ?>
+              <!-- Replies start collapsed (like YouTube): "▾ 2 replies" opens them, "▴ Hide replies" closes them -->
+              <button type="button" class="comment-replies-toggle" aria-expanded="false" aria-controls="replies-<?php echo $qid; ?>" data-label="<?php echo $n . ($n === 1 ? ' reply' : ' replies'); ?>" onclick="toggleReplies(this)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                <span><?php echo $n . ($n === 1 ? ' reply' : ' replies'); ?></span>
+              </button>
+              <div class="comment-replies" id="replies-<?php echo $qid; ?>" hidden>
+                <?php foreach ($q['replies'] as $r): ?>
+                <div class="comment-reply" id="comment-<?php echo (int) $r['id']; ?>">
+                  <?php $person($r, true); ?>
+                  <button type="button" class="comment-reply-btn" aria-controls="reply-<?php echo $qid; ?>" data-mention="<?php echo (int) $r['id']; ?>" data-name="<?php echo $e($r['name']); ?>" onclick="replyTo(this)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    Reply
+                  </button>
+                </div>
+                <?php endforeach; ?>
+              </div>
+              <?php endif; ?>
             </div>
             <?php endforeach; ?>
           </div>
@@ -204,6 +214,26 @@ function sf_render_comments(array $item, array $comments, $pageLink, $csrf, $err
             const toggle = form.closest('.comment-item').querySelector(':scope > .comment-reply-btn');
             if (toggle) toggle.setAttribute('aria-expanded', 'true');
           }
+          // Show or hide the replies under a question (show = true/false, or leave it out to flip)
+          function toggleReplies(btn, show) {
+            const list = document.getElementById(btn.getAttribute('aria-controls'));
+            if (show === undefined) show = list.hidden;
+            list.hidden = !show;
+            btn.setAttribute('aria-expanded', String(show));
+            btn.querySelector('span').textContent = show ? 'Hide replies' : btn.dataset.label;
+          }
+          // A link to a comment (notifications, or just after replying) opens its replies so it can be seen
+          function openLinkedComment() {
+            const target = location.hash.startsWith('#comment-') && document.getElementById(location.hash.slice(1));
+            if (!target) return;
+            const item = target.closest('.comment-item');
+            const toggle = item && item.querySelector(':scope > .comment-replies-toggle');
+            if (!toggle) return;
+            toggleReplies(toggle, true);
+            target.scrollIntoView({ block: 'center' });
+          }
+          openLinkedComment();
+          window.addEventListener('hashchange', openLinkedComment);
           <?php if ($error): ?>document.getElementById('comments').scrollIntoView();   // show what needs fixing<?php endif; ?>
         </script>
     <?php

@@ -1040,6 +1040,16 @@ textarea.rent-input { resize: vertical; min-height: 72px; }
 .comment-reply { margin: 10px 0 0 22px; padding: 10px 0 0 14px; border-left: 2px solid var(--border-light); }
 .reply-form { margin: 10px 0 0 22px; }
 .reply-form[hidden] { display: none; }
+/* "▾ 2 replies" / "▴ Hide replies" under a question */
+.comment-replies-toggle {
+  display: flex; width: max-content; align-items: center; gap: 6px; margin: 4px 0 0 10px; padding: 6px 12px;
+  border: none; border-radius: 999px; background: transparent; color: #b8862b;
+  font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: background-color 0.15s;
+}
+.comment-replies-toggle:hover { background: #fdf3dc; }
+.comment-replies-toggle svg { transition: transform 0.2s; }
+.comment-replies-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.comment-replies[hidden] { display: none; }
 .reviews-card { margin-top: 18px; }
 .reviews-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .reviews-avg { font-size: 28px; font-weight: 800; color: var(--text-dark); }

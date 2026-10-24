@@ -301,8 +301,8 @@ $folder = '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9
         </select>
       </div>
       <div class="adm-field" id="catCountField"<?php echo $m['id'] ? '' : ' hidden'; ?>>
-        <label for="catCount">Listings count</label>
-        <input type="text" id="catCount" readonly tabindex="-1" />
+        <label for="catUsed">Listings count</label>
+        <input type="text" id="catUsed" readonly tabindex="-1" />
       </div>
 
       <div class="card-modal-split">
@@ -333,7 +333,7 @@ $folder = '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9
       type.disabled = editing;
       type.title = editing ? 'The type can\'t change after a category is created.' : '';
       document.getElementById('catCountField').hidden = !editing;
-      document.getElementById('catCount').value = editing ? cat.used.toLocaleString('en-US') : '';
+      document.getElementById('catUsed').value = editing ? cat.used.toLocaleString('en-US') : '';
       document.getElementById('catStatus').value = editing ? cat.status : 'active';
       const del = document.getElementById('catDelete');
       del.hidden = !editing;

@@ -264,7 +264,7 @@ a.step.done:hover { text-decoration: underline; }
 .footer-link:hover { color: #fff; }
 .footer-text-item { color: var(--text-light-muted); font-size: 13.5px; }
 .footer-divider { height: 1px; background: rgba(255,255,255,.08); margin-bottom: 24px; }
-.footer-bottom { text-align: center; font-size: 12px; color: var(--text-light-muted); }
+.footer-bottom { text-align: left; font-size: 12px; color: var(--text-light-muted); }
 
 /* ==========================================================================
    RESPONSIVE

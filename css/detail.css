@@ -944,7 +944,7 @@ body {
 }
 
 .footer-bottom {
-  text-align: center;
+  text-align: left;
   font-size: 12px;
   color: var(--text-light-muted);
 }

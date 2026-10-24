@@ -334,7 +334,7 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/cart.css?v=5" />
+  <link rel="stylesheet" href="css/cart.css?v=6" />
   <link rel="stylesheet" href="css/account.css?v=21" />
   <link rel="stylesheet" href="css/header.css?v=1" />
   <link rel="stylesheet" href="css/responsive.css?v=2" />

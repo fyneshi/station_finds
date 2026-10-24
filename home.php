@@ -13,7 +13,7 @@ require_once __DIR__ . '/includes/shop.php';
 require_once __DIR__ . '/includes/layout.php';
 
 // Location filter (?loc=): every location sellers use; listings without one are "not specified"
-$locOptions = sf_location_options(sf_catalog());
+$locOptions = sf_location_options();
 $loc        = sf_location_param($locOptions);
 $locLabel   = sf_location_label($locOptions, $loc);
 $listings   = sf_filter_location(sf_catalog(), $loc);
@@ -40,7 +40,7 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/home.css?v=7" />
+  <link rel="stylesheet" href="css/home.css?v=8" />
   <link rel="stylesheet" href="css/header.css?v=1" />
   <link rel="stylesheet" href="css/responsive.css?v=2" />
   <script>
@@ -74,7 +74,6 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
             <?php foreach ($locOptions as $key => $label): ?>
             <option value="<?php echo $e($key); ?>"<?php echo $loc === $key ? ' selected' : ''; ?>><?php echo $e($label); ?></option>
             <?php endforeach; ?>
-            <option value="<?php echo SF_LOCATION_NONE; ?>"<?php echo $loc === SF_LOCATION_NONE ? ' selected' : ''; ?>>Location not specified</option>
           </select>
           <svg class="location-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </label>
@@ -86,7 +85,7 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
 
       <!-- ==================== SECTION: TODAY'S PICKS ==================== -->
       <section class="picks-section">
-        <h2 class="section-title"><?php echo $loc === '' ? 'Today\'s picks for you' : ($loc === SF_LOCATION_NONE ? 'Listings without a location' : 'Listings in ' . $e($locLabel)); ?></h2>
+        <h2 class="section-title"><?php echo $loc === '' ? 'Today\'s picks for you' : 'Listings in ' . $e($locLabel); ?></h2>
 
         <div class="picks-grid<?php echo $loc !== '' ? ' picks-all' : ''; ?>">
           <?php foreach ($picks as $id => $pick):
@@ -134,7 +133,7 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
           <?php endforeach; ?>
 
           <?php if (!$picks && $loc !== ''): ?>
-          <p class="picks-empty">Nothing available <?php echo $loc === SF_LOCATION_NONE ? 'without a location' : 'in ' . $e($locLabel); ?> right now. <a href="home.php">Show all locations</a></p>
+          <p class="picks-empty">Nothing available in <?php echo $e($locLabel); ?> right now. <a href="home.php">Show all locations</a></p>
           <?php elseif (!$picks): ?>
           <p class="picks-empty">No listings yet. <a href="listing_form.php">Be the first to sell something</a> or <a href="marketplace.php">browse the marketplace</a>.</p>
           <?php endif; ?>

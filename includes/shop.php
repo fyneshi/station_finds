@@ -22,6 +22,15 @@ const SF_PLACEHOLDER_IMAGE = 'assets/images/logo2.png';
 
 // ── Options for sellers' listings (listing_form.php, become_seller.php) ──
 const SF_CONDITIONS = ['brand-new' => 'Brand new', 'like-new' => 'Like new', 'excellent' => 'Excellent', 'good' => 'Good', 'fair' => 'Fair'];
+// Campus / Location: sellers pick one of these (listings.location stores the name as shown)
+const SF_CAMPUSES = [
+    'Our Lady Of Fatima University Valenzuela',
+    'Our Lady Of Fatima University Quezon City',
+    'Our Lady Of Fatima University Antipolo',
+    'Our Lady Of Fatima University Pampanga',
+    'Our Lady Of Fatima University Nueva Ecija',
+    'Our Lady Of Fatima University Laguna',
+];
 // Service price units and how many a buyer can book
 const SF_SERVICE_UNITS = [
     'hr'      => [1, 2, 3, 4, 5, 6, 7, 8],
@@ -425,48 +434,31 @@ function sf_buy_now_items($userId) {
 }
 
 // ── Location filter (Home page, carried on to the marketplace) ──
-// Sellers type their own campus / location, so "Quezon city" and "Quezon City " count as one place.
-const SF_LOCATION_NONE = 'none';   // ?loc=none: listings without a location
-
 function sf_location_key($location) {
     return mb_strtolower(trim(preg_replace('/\s+/', ' ', (string) $location)));
 }
 
-// Every location used by a listing: key => label (its most used spelling), A–Z
-function sf_location_options(array $catalog) {
-    $spellings = [];
-    foreach ($catalog as $item) {
-        $key = sf_location_key($item['location'] ?? '');
-        if ($key === '') continue;
-        $label = trim(preg_replace('/\s+/', ' ', $item['location']));
-        $spellings[$key][$label] = ($spellings[$key][$label] ?? 0) + 1;
-    }
+// The campuses (SF_CAMPUSES): key => name
+function sf_location_options() {
     $options = [];
-    foreach ($spellings as $key => $labels) {
-        arsort($labels);
-        $options[$key] = array_key_first($labels);
-    }
-    asort($options, SORT_NATURAL | SORT_FLAG_CASE);
+    foreach (SF_CAMPUSES as $campus) $options[sf_location_key($campus)] = $campus;
     return $options;
 }
 
 // The ?loc= the visitor picked, if it's a real option ('' = all locations)
 function sf_location_param(array $options) {
     $loc = (string) ($_GET['loc'] ?? '');
-    return ($loc === SF_LOCATION_NONE || isset($options[$loc])) ? $loc : '';
+    return isset($options[$loc]) ? $loc : '';
 }
 
 // Listings in that location ('' keeps everything)
 function sf_filter_location(array $catalog, $loc) {
     if ($loc === '') return $catalog;
-    return array_filter($catalog, fn($item) => $loc === SF_LOCATION_NONE
-        ? sf_location_key($item['location'] ?? '') === ''
-        : sf_location_key($item['location'] ?? '') === $loc);
+    return array_filter($catalog, fn($item) => sf_location_key($item['location'] ?? '') === $loc);
 }
 
-// "Quezon City", "Location not specified" or "" for all locations
+// The campus name, or "" for all locations
 function sf_location_label(array $options, $loc) {
-    if ($loc === SF_LOCATION_NONE) return 'Location not specified';
     return $options[$loc] ?? '';
 }
 

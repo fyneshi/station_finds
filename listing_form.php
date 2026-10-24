@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'stock'       => $type === 'products' ? str_replace([',', ' '], '', trim((string) ($_POST['stock'] ?? ''))) : '0',
             'unit'        => $type === 'rentals' ? 'day' : ($type === 'services' ? (string) ($_POST['unit'] ?? '') : ''),
             'description' => trim(str_replace("\r\n", "\n", (string) ($_POST['description'] ?? ''))),
-            'location'    => trim(preg_replace('/\s+/', ' ', (string) ($_POST['location'] ?? ''))),
+            'location'    => (string) ($_POST['location'] ?? ''),
         ];
         $status = ($_POST['status'] ?? '') === 'draft' ? 'draft' : 'active';
         // A listing an admin flagged can't go live by itself: publishing sends it for review,
@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($type === 'products' && (!ctype_digit($v['stock']) || (int) $v['stock'] > SF_MAX_STOCK)) {
             $errors['stock'] = 'Enter how many you have, from 0 to ' . number_format(SF_MAX_STOCK) . '.';
         }
-        if (mb_strlen($v['location']) > 120) $errors['location'] = 'Please keep the location under 120 characters.';
+        if (!in_array($v['location'], SF_CAMPUSES, true)) $errors['location'] = 'Please choose the campus.';
         if (mb_strlen($v['description']) > 1000) $errors['description'] = 'Please keep the description under 1,000 characters.';
 
         // Photos: keep the saved ones not marked for removal, then add the new uploads
@@ -267,7 +267,12 @@ $priceLabels = ['products' => 'Price (₱)', 'rentals' => 'Price per day (₱)',
         <div class="form-row-loc">
         <div class="form-field">
           <label class="form-label" for="location">Campus / Location</label>
-          <input type="text" id="location" name="location" class="text-input<?php echo $bad('location'); ?>" value="<?php echo $e($v['location']); ?>" maxlength="120" placeholder="e.g. Katipunan Quezon City / Ateneo De Manila" autocomplete="off" />
+          <select id="location" name="location" class="text-input<?php echo $bad('location'); ?>">
+            <option value="">Select campus...</option>
+            <?php foreach (SF_CAMPUSES as $campus): ?>
+            <option value="<?php echo $e($campus); ?>"<?php echo $v['location'] === $campus ? ' selected' : ''; ?>><?php echo $e($campus); ?></option>
+            <?php endforeach; ?>
+          </select>
           <?php echo $err('location'); ?>
         </div>
 

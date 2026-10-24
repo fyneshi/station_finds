@@ -32,7 +32,7 @@ while ($res && $row = $res->fetch_assoc()) $orderCounts[$row['item_key']] = (int
 $sellerCards = ['products' => [], 'rentals' => [], 'services' => []];
 $popular     = [];
 // ?loc= from the Home page location filter: only listings in that place
-$locOptions = sf_location_options(sf_catalog());
+$locOptions = sf_location_options();
 $loc       = sf_location_param($locOptions);
 $locLabel  = sf_location_label($locOptions, $loc);
 foreach (sf_filter_location(sf_catalog(), $loc) as $id => $listing) {
@@ -75,13 +75,8 @@ $products = $sellerCards['products'];
 $rentals  = $sellerCards['rentals'];
 $services = $sellerCards['services'];
 
-// Places products can be picked up from (Products filter → Location)
-$productLocations = [];
-foreach (sf_catalog() as $listing) {
-    $place = trim($listing['location']);
-    if ($listing['type'] === 'products' && $place !== '') $productLocations[mb_strtolower($place)] = $place;
-}
-ksort($productLocations);
+// Campuses products can be picked up from (Products filter → Location)
+$productLocations = sf_location_options();
 
 // Category buttons in the Products and Services filters
 $filterCategories = sf_categories(true);
@@ -267,7 +262,7 @@ function render_no_results(string $type) {
           <h1 class="marketplace-title">Marketplace</h1>
           <p class="marketplace-subtitle" id="marketplaceSubtitle"></p>
           <?php if ($loc !== ''): ?>
-          <p class="location-chip">Showing listings <?php echo $loc === SF_LOCATION_NONE ? 'without a location' : 'in <strong>' . htmlspecialchars($locLabel, ENT_QUOTES, 'UTF-8') . '</strong>'; ?> &middot; <a href="marketplace.php">Show all locations</a></p>
+          <p class="location-chip">Showing listings in <strong><?php echo htmlspecialchars($locLabel, ENT_QUOTES, 'UTF-8'); ?></strong> &middot; <a href="marketplace.php">Show all locations</a></p>
           <?php endif; ?>
         </div>
         <span class="results-count" id="resultsCount"></span>

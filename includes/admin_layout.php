@@ -292,7 +292,7 @@ function sf_admin_shell_start($active, $searchPlaceholder = null) {
     ?>
   <div class="adm-shell">
     <aside class="adm-sidebar" id="admSidebar">
-      <a href="admin_dashboard.php" class="adm-brand"><span class="adm-brand-logo"><img src="assets/images/logo.png" alt="Station Finds" /></span></a>
+      <a href="admin_dashboard.php" class="adm-brand"><img src="assets/images/logo-dark.png" alt="Station Finds" class="adm-brand-logo" /></a>
 
       <div class="adm-profile">
         <span class="adm-avatar"><?php echo $e($initials); ?></span>

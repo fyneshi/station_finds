@@ -116,6 +116,15 @@ async function handleAuthSubmit(e) {
 
   const result = await sendAuthRequest(payload);
 
+  if (!result.success && result.suspended) {
+    // Suspended: open Contact support with their email, ready to appeal
+    btn.disabled = false;
+    btn.textContent = 'Log in';
+    openSupport('appeal', email);
+    showSupportNotice(result.message);
+    return;
+  }
+
   if (result.success) {
     showToast(result.message, 'success');
     const targetUrl = result.redirect || 'home.php';
@@ -127,6 +136,57 @@ async function handleAuthSubmit(e) {
     btn.disabled = false;
     btn.textContent = currentAuthMode === 'login' ? 'Log in' : 'Sign up';
   }
+}
+
+// ── Contact support (no login needed): appeal a suspension, can't log in, or anything else ──
+function openSupport(topic, email) {
+  showView('support');
+  document.getElementById('supportForm').hidden = false;
+  document.getElementById('supportDone').hidden = true;
+  if (topic) document.getElementById('supportTopic').value = topic;
+  const emailBox = document.getElementById('supportEmail');
+  if (email) emailBox.value = email;
+  else if (!emailBox.value) emailBox.value = document.getElementById('authEmail').value.trim();
+  const notice = document.getElementById('supportNotice');
+  if (notice) notice.remove();
+  document.getElementById(emailBox.value ? 'supportName' : 'supportEmail').focus();
+}
+// The suspension message, shown above the form (it can include how their last appeal went)
+function showSupportNotice(message) {
+  const notice = document.createElement('div');
+  notice.className = 'auth-notice';
+  notice.id = 'supportNotice';
+  notice.setAttribute('role', 'alert');
+  notice.textContent = message;
+  const view = document.getElementById('view-support');
+  view.insertBefore(notice, view.firstChild);
+}
+async function handleSupportSubmit(e) {
+  e.preventDefault();
+  const data = {
+    action: 'support',
+    topic: document.getElementById('supportTopic').value,
+    name: document.getElementById('supportName').value.trim(),
+    email: document.getElementById('supportEmail').value.trim(),
+    message: document.getElementById('supportMessage').value.trim()
+  };
+  if (!data.name) { showToast('Please enter your name.', 'error'); return; }
+  if (!/^\S+@\S+\.\S+$/.test(data.email)) { showToast('Please enter a valid email address.', 'error'); return; }
+  if (data.message.length < 20) { showToast('Please tell us a bit more (at least 20 characters).', 'error'); return; }
+
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  const result = await sendAuthRequest(data);
+  btn.disabled = false;
+  if (!result.success) { showToast(result.message, 'error'); return; }
+
+  // Done: say what happens next, in place of the form
+  e.target.reset();
+  e.target.hidden = true;
+  const done = document.getElementById('supportDone');
+  done.textContent = result.message;
+  done.hidden = false;
+  showToast('Message sent.', 'success');
 }
 
 // ── Forgot Password: email + username + new password (not for admin accounts) ──

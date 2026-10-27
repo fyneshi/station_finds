@@ -585,6 +585,8 @@ $addColumns = [
     ['users', 'id_note',         "VARCHAR(255) NOT NULL DEFAULT ''"],
     ['users', 'id_submitted_at', "TIMESTAMP NULL DEFAULT NULL"],
     ['users', 'id_reviewed_at',  "TIMESTAMP NULL DEFAULT NULL"],
+    // When a suspension ends by itself (15–30 days after it started); NULL = until an admin reactivates
+    ['users', 'suspended_until', "TIMESTAMP NULL DEFAULT NULL"],
 ];
 foreach ($addColumns as [$table, $column, $definition]) {
     $check = $conn->query("SHOW COLUMNS FROM `$table` LIKE '$column'");
@@ -664,8 +666,30 @@ if (!$conn->query("DROP TABLE IF EXISTS `activity_logs`, `admin_notifications`")
     ]));
 }
 // ── Suspended accounts ──────────────────────────────────────────
-// An admin can suspend a user (admin_users.php). Their next page load or request ends
-// their session: JSON handlers get a 401, pages go back to the login page.
+// An admin suspends a user for 15, 20 or 30 days (admin_users.php, admin_moderation.php); the
+// account turns back on by itself when that time is up. Suspensions from before this have no
+// end date and last until an admin reactivates them.
+const SF_SUSPEND_DAYS = [15, 20, 30];
+function sf_suspend_days($value) {
+    $days = (int) $value;
+    return in_array($days, SF_SUSPEND_DAYS, true) ? $days : SF_SUSPEND_DAYS[0];
+}
+// Suspensions that have run their course end here, on whichever request comes first
+$ended = $conn->query("SELECT id, username FROM users WHERE status = 'suspended' AND suspended_until IS NOT NULL AND suspended_until <= NOW()");
+while ($ended && $endedRow = $ended->fetch_assoc()) {
+    $endedId = (int) $endedRow['id'];
+    $conn->query("UPDATE users SET status = 'active', suspended_until = NULL WHERE id = $endedId AND status = 'suspended'");
+    if ($conn->affected_rows < 1) continue;
+    $conn->query("INSERT INTO notifications (user_id, type, title, body, link) VALUES ($endedId, 'security', 'Account reactivated',
+                  'Your suspension has ended, so your Station Finds account is active again. Welcome back!', 'home.php')");
+    $endedLog = $conn->prepare("INSERT INTO admin_logs (admin_id, admin_name, kind, action, target, badge) VALUES (NULL, 'System', 'user', 'Suspension ended automatically', ?, 'ACTIVE')");
+    $endedLog->bind_param("s", $endedRow['username']);
+    $endedLog->execute();
+    $endedLog->close();
+}
+
+// A suspended user's next page load or request ends their session: JSON handlers get a 401,
+// pages go back to the login page.
 if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['user_id'])) {
     $statusStmt = $conn->prepare("SELECT status, last_seen_at < NOW() - INTERVAL 60 SECOND OR last_seen_at IS NULL AS stale FROM users WHERE id = ?");
     $sessionUserId = (int) $_SESSION['user_id'];
@@ -683,9 +707,9 @@ if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['user_id'])) {
         }
         if ($isJson) {
             http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Your account has been suspended. Contact support@stationfinds.edu.ph.']);
+            echo json_encode(['success' => false, 'message' => 'Your account has been suspended. You can appeal from the login page (Contact support).']);
         } else {
-            header('Location: ' . sf_root_url('index.php?mode=login'));
+            header('Location: ' . sf_root_url('index.php?mode=login&suspended=1'));
         }
         exit;
     }

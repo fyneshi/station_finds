@@ -123,8 +123,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $outcome = 'comment_removed';
                 $done    = 'The comment was removed and its author was told.';
             } else {
-                $stmt = $conn->prepare("UPDATE users SET status = 'suspended' WHERE id = ? AND role <> 'admin'");
-                $stmt->bind_param("i", $report['target_id']);
+                $days  = sf_suspend_days($_POST['suspend_days'] ?? 0);   // turns back on by itself after this
+                $until = date('Y-m-d H:i:s', strtotime('+' . $days . ' days'));
+                $stmt = $conn->prepare("UPDATE users SET status = 'suspended', suspended_until = ? WHERE id = ? AND role <> 'admin' AND status <> 'suspended'");
+                $stmt->bind_param("si", $until, $report['target_id']);
                 $stmt->execute();
                 $changed = $stmt->affected_rows;
                 $stmt->close();
@@ -135,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->close();
                 if (!$target) back($tab, 'err', 'That user no longer exists. Dismiss the report instead.');
                 $outcome = 'user_suspended';
-                $done    = $name . ($changed ? ' was suspended.' : ' was already suspended.');
+                $done    = $name . ($changed ? ' was suspended for ' . $days . ' days, until ' . date('M j, Y', strtotime($until)) . '.' : ' was already suspended.');
             }
             // Every open report about the same listing or user is settled by this action
             $stmt = $conn->prepare("SELECT * FROM reports WHERE target_type = ? AND target_id = ? AND status IN ('open', 'escalated')");
@@ -206,7 +208,7 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css?v=26" />
+  <link rel="stylesheet" href="css/admin.css?v=28" />
   <link rel="stylesheet" href="css/admin-shell.css?v=6" />
 </head>
 <body>
@@ -351,6 +353,13 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
         <textarea id="rNote" name="note" maxlength="255" rows="3" placeholder="Write internal notes about your action here…"></textarea>
         <span class="adm-field-hint" id="rNoteHint"></span>
       </div>
+      <div class="adm-field" id="rDaysField" hidden>
+        <label for="rDays">If you suspend: for how long</label>
+        <select id="rDays" name="suspend_days">
+          <?php foreach (SF_SUSPEND_DAYS as $d): ?><option value="<?php echo $d; ?>"><?php echo $d; ?> days</option><?php endforeach; ?>
+        </select>
+        <span class="adm-field-hint">The account turns back on by itself after this.</span>
+      </div>
       <div class="review-actions">
         <button type="submit" name="action" value="resolve" class="export-button" id="rResolve">Mark as resolved</button>
         <button type="submit" name="action" value="escalate" class="filter-button" id="rEscalate">Escalate</button>
@@ -405,6 +414,7 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
                                : 'Kept for the admin team. The reporter is told the outcome, not your note.');
       document.getElementById('rAct').textContent = listing ? 'Flag Item' : comment ? 'Remove comment' : 'Suspend user';
       show('rAct', !r.gone);
+      show('rDaysField', r.type === 'user' && !r.gone);
       show('rEscalate', r.status === 'open');
       show('rForm', !closed);
       modal.showModal();
@@ -420,7 +430,7 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
         note.focus();
       } else if (action === 'take_action' && document.getElementById('rAct').textContent === 'Remove comment') {
         if (!confirm('Remove this comment? If it\'s a question, its replies are removed too.')) e.preventDefault();
-      } else if (action === 'take_action' && !listing && !confirm('Suspend this user? They are logged out and their listings are hidden.')) {
+      } else if (action === 'take_action' && !listing && !confirm('Suspend this user for ' + document.getElementById('rDays').value + ' days? They are logged out and their listings are hidden until then.')) {
         e.preventDefault();
       }
     });

@@ -590,3 +590,11 @@ a.manage-btn { display: inline-block; }
 /* Transaction Management: what a renter sent with a declined return / refund request */
 .dispute-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .dispute-photos img { width: 72px; height: 72px; object-fit: cover; border: 1px solid #7c8a99; border-radius: 6px; display: block; }
+/* Feedback: an admin note on messages to the platform, and the hint on suspension appeals */
+.review-actions .feedback-reply { flex-basis: 100%; margin-bottom: 4px; }
+.feedback-reply label span { font-weight: 500; color: var(--muted); }
+.appeal-hint { margin-bottom: 12px; padding: 10px 12px; border: 1px solid #f5c2c7; border-radius: 8px; background: #fff1f2; color: #9f1239; }
+.appeal-hint a { font-weight: 700; color: inherit; text-decoration: underline; }
+/* Suspensions end by themselves after 15–30 days: the end date under the chip, and the length picker */
+.status-until { display: block; margin-top: 4px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.suspend-length { margin: 4px 0 12px; }

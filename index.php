@@ -32,7 +32,7 @@ if (($_SERVER['QUERY_STRING'] ?? '') === '') {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=8">
+  <link rel="stylesheet" href="css/style.css?v=11">
 </head>
 <body>
   <div class="app-container">
@@ -45,9 +45,10 @@ if (($_SERVER['QUERY_STRING'] ?? '') === '') {
 
       <!-- Brand Logo -->
        <div class="brand-logo-container">
-        <div class="brand-logo-badge">
-            <img src="assets/images/logo.png" alt="Station Finds Logo" class="brand-logo-img" />
-        </div>
+        <!-- The logo goes to the home page, browsing as a guest (or back to the page they came from) -->
+        <a href="<?php echo htmlspecialchars($next ?: 'home.php'); ?>" class="brand-logo-badge" title="Browse Station Finds as a guest">
+            <img src="assets/images/logo.png" alt="Station Finds — browse as a guest" class="brand-logo-img" />
+        </a>
     </div>
 
       <div class="brand-hero">
@@ -119,6 +120,10 @@ if (($_SERVER['QUERY_STRING'] ?? '') === '') {
 
         <!-- VIEW 1: AUTH (LOG IN & SIGN UP) -->
         <div id="view-auth" class="view-container <?php echo isset($_SESSION['user_id']) ? '' : 'active'; ?>">
+          <?php if (!empty($_GET['suspended'])): ?>
+          <!-- Sent here after being suspended while logged in (db_setup.php) -->
+          <div class="auth-notice" role="alert">Your account has been suspended. If you think this is a mistake, <button type="button" class="link-action" onclick="openSupport('appeal')">send an appeal</button>.</div>
+          <?php endif; ?>
           <h2 id="authHeading" class="card-title">Welcome back</h2>
           <p id="authSubtitle" class="card-subtitle">Log in to continue to your account.</p>
 
@@ -184,7 +189,7 @@ if (($_SERVER['QUERY_STRING'] ?? '') === '') {
             <span id="footerPrompt">Don't have an account?</span><br>
             <button type="button" id="footerActionBtn" class="link-action" onclick="toggleAuthMode()">Sign up</button>
           </div>
-          <a href="<?php echo htmlspecialchars($next ?: 'home.php'); ?>" class="guest-browse-link">Browse as a guest</a>
+          <p class="support-line">Can't log in, or was your account suspended? <button type="button" class="link-action" onclick="openSupport()">Contact support</button></p>
         </div>
 
         <!-- VIEW 2: FORGOT PASSWORD -->
@@ -226,11 +231,43 @@ if (($_SERVER['QUERY_STRING'] ?? '') === '') {
           </form>
 
           <div class="card-footer-text">
-            Forgot your username too? Ask an admin to reset it for you.
+            Forgot your username too? <button type="button" class="link-action" onclick="openSupport('access')">Contact support</button>
             <br>
             Remembered your password?
             <button type="button" class="link-action" onclick="showView('auth'); setAuthMode('login');">Log in</button>
           </div>
+        </div>
+
+        <!-- VIEW 3: CONTACT SUPPORT (no login needed, e.g. to appeal a suspension). Admins read it in Feedback. -->
+        <div id="view-support" class="view-container">
+          <h2 class="card-title">Contact support</h2>
+          <p class="card-subtitle">Tell us what's wrong. An admin reads every message.</p>
+
+          <form id="supportForm" onsubmit="handleSupportSubmit(event)" novalidate>
+            <div class="form-group">
+              <label class="form-label" for="supportTopic">What do you need help with?</label>
+              <select id="supportTopic" class="form-input" required>
+                <option value="appeal">Appeal a suspended account</option>
+                <option value="access">Can't log in to my account</option>
+                <option value="other">Something else</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="supportName">Your name</label>
+              <input type="text" id="supportName" class="form-input" maxlength="100" placeholder="Full name" autocomplete="name" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="supportEmail">Email on your account</label>
+              <input type="email" id="supportEmail" class="form-input" maxlength="255" placeholder="name@email.com" autocomplete="email" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="supportMessage">Message</label>
+              <textarea id="supportMessage" class="form-input form-textarea" maxlength="1000" rows="5" placeholder="e.g. Why your account should be reactivated, or what happens when you try to log in." required></textarea>
+            </div>
+            <button type="submit" class="btn-primary">Send message</button>
+          </form>
+
+          <div class="card-footer-text" id="supportDone" hidden></div>
         </div>
 
       </div>
@@ -238,7 +275,7 @@ if (($_SERVER['QUERY_STRING'] ?? '') === '') {
   </div>
 
   <script>window.SF_NEXT = <?php echo json_encode($next); ?>;</script>
-  <script src="js/script.js?v=9"></script>
+  <script src="js/script.js?v=10"></script>
   <?php if ($startMode === 'signup'): ?><script>setAuthMode('signup');</script><?php endif; ?>
 </body>
 </html>

@@ -53,8 +53,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($item['status'] === $next) back($tab, $id, 'err', 'It\'s already ' . strtolower($statuses[$next][0]) . '.');
 
         $closing = in_array($next, ['resolved', 'flagged', 'dismissed'], true);
-        $stmt = $conn->prepare("UPDATE feedback SET status = ?, resolved_at = " . ($closing ? "NOW()" : "NULL") . " WHERE id = ?");
-        $stmt->bind_param("si", $next, $id);
+        // Reply to the person (optional). Someone who appealed a suspension sees it when they next try to log in.
+        $note = mb_substr(trim(preg_replace('/\s+/', ' ', (string) ($_POST['note'] ?? ''))), 0, 255);
+        if ($note === '') $note = $item['admin_note'];
+        $stmt = $conn->prepare("UPDATE feedback SET status = ?, admin_note = ?, resolved_at = " . ($closing ? "NOW()" : "NULL") . " WHERE id = ?");
+        $stmt->bind_param("ssi", $next, $note, $id);
         $stmt->execute();
         $stmt->close();
         sf_admin_log($conn, 'feedback', ['resolved' => 'Resolved feedback', 'escalated' => 'Escalated feedback', 'flagged' => 'Flagged feedback',
@@ -131,7 +134,7 @@ $initials = fn($name) => strtoupper(implode('', array_map(fn($w) => mb_substr($w
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css?v=26" />
+  <link rel="stylesheet" href="css/admin.css?v=28" />
   <link rel="stylesheet" href="css/admin-shell.css?v=6" />
 </head>
 <body>
@@ -221,6 +224,8 @@ $initials = fn($name) => strtoupper(implode('', array_map(fn($w) => mb_substr($w
                       'profileName' => $profName, 'profileEmail' => $aboutId ? (string) $f['about_email'] : $f['email'], 'initials' => $initials($profName),
                       'profileRating' => $ratings ? number_format(array_sum($ratings) / count($ratings), 1) . ' / 5.0 (' . count($ratings) . ')' : ($aboutId ? 'No ratings yet' : ''),
                       'related' => $f['listing_title'] ?? $f['item_title'] ?? '', 'order' => $f['order_no'] ?? '',
+                      'platform' => $f['type'] === 'platform', 'note' => (string) $f['admin_note'],
+                      'appeal' => $f['subject'] === 'Appeal a suspended account',
                   ];
                 ?>
                 <tr class="<?php echo $isSelected ? 'is-selected' : ''; ?>" data-search="<?php echo $e(mb_strtolower($f['subject'] . ' ' . $f['name'] . ' ' . $f['email'] . ' ' . $f['message'] . ' ' . ($f['listing_title'] ?? ''))); ?>" data-status="<?php echo $e($f['status']); ?>" data-rating="<?php echo $f['rating'] === null ? 'none' : (int) $f['rating']; ?>">
@@ -275,9 +280,14 @@ $initials = fn($name) => strtoupper(implode('', array_map(fn($w) => mb_substr($w
     </div>
     <blockquote class="review-preview feedback-message" id="fMessage"></blockquote>
     <p class="adm-field-hint" id="fPublicNote">This is a public review: Flag or Dismiss hides its stars from the listing and the seller's rating.</p>
-    <form method="post" class="review-actions">
+    <p class="adm-field-hint appeal-hint" id="fAppealNote">Suspension appeal. To lift it, <a href="admin_users.php?tab=suspended">reactivate the account in User Management</a>; to keep it, resolve or dismiss this appeal.</p>
+    <form method="post" class="review-actions" id="fForm">
       <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
       <input type="hidden" name="id" id="fId" />
+      <div class="adm-field feedback-reply" id="fReplyField">
+        <label for="fNote">Admin note <span>(optional, for the team)</span></label>
+        <textarea id="fNote" name="note" maxlength="255" rows="2" placeholder="e.g. Checked their listings; suspension stays."></textarea>
+      </div>
       <button type="submit" name="action" value="resolve" class="export-button" data-hide="resolved">Mark as resolved</button>
       <button type="submit" name="action" value="escalate" class="filter-button" data-hide="escalated">Escalate</button>
       <button type="submit" name="action" value="flag" class="filter-button" data-hide="flagged">Flag</button>
@@ -321,6 +331,9 @@ $initials = fn($name) => strtoupper(implode('', array_map(fn($w) => mb_substr($w
       set('fOrder', f.order ? '#' + f.order : '');
       show('fOrderRow', !!f.order);
       show('fPublicNote', f.public);
+      show('fAppealNote', f.appeal);
+      show('fReplyField', f.platform);
+      document.getElementById('fNote').value = f.note;
 
       // Offer every change except to the status it already has; Reopen once it's closed
       const closed = !['pending', 'escalated'].includes(f.status);

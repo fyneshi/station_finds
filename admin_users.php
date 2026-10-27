@@ -93,8 +93,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$editErrors) {
             // Someone made an admin starts with no pages (Settings › Roles & permissions)
             $access = $editValues['role'] === 'admin' ? ($target['role'] === 'admin' ? $target['admin_access'] : '') : null;
-            $stmt = $conn->prepare("UPDATE users SET full_name = ?, email = ?, role = ?, status = ?, admin_access = ? WHERE id = ?");
-            $stmt->bind_param("sssssi", $editValues['full_name'], $editValues['email'], $editValues['role'], $editValues['status'], $access, $editValues['id']);
+            // Suspending: ends by itself after 15–30 days; staying suspended keeps the date; reactivating clears it
+            $days  = sf_suspend_days($_POST['suspend_days'] ?? 0);
+            $until = $editValues['status'] !== 'suspended' ? null
+                : ($target['status'] === 'suspended' ? $target['suspended_until'] : date('Y-m-d H:i:s', strtotime('+' . $days . ' days')));
+            $stmt = $conn->prepare("UPDATE users SET full_name = ?, email = ?, role = ?, status = ?, admin_access = ?, suspended_until = ? WHERE id = ?");
+            $stmt->bind_param("ssssssi", $editValues['full_name'], $editValues['email'], $editValues['role'], $editValues['status'], $access, $until, $editValues['id']);
             $stmt->execute();
             $stmt->close();
 
@@ -107,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if ($editValues['status'] !== $target['status']) {
                 if ($editValues['status'] === 'active') sf_notify($conn, $editValues['id'], 'security', 'Account reactivated', 'Your Station Finds account is active again. Welcome back!');
-                sf_admin_log($conn, 'user', $editValues['status'] === 'suspended' ? 'Suspended user account' : 'Reactivated user account', $who, $editValues['status'], $editValues['status'] === 'suspended');
+                sf_admin_log($conn, 'user', $editValues['status'] === 'suspended' ? 'Suspended user account for ' . $days . ' days' : 'Reactivated user account', $who, $editValues['status'], $editValues['status'] === 'suspended');
             }
             if ($editValues['role'] !== $target['role']) {
                 sf_admin_log($conn, 'user', $editValues['role'] === 'admin' ? 'Made user an admin' : 'Removed admin role', $who, 'edited', true);
@@ -185,17 +189,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($target['role'] === 'admin') back($tab, 'err', 'Admin accounts can\'t be suspended here.');
 
         $status = $action === 'suspend' ? 'suspended' : 'active';
-        $stmt = $conn->prepare("UPDATE users SET status = ? WHERE id = ?");
-        $stmt->bind_param("si", $status, $id);
+        $days   = sf_suspend_days($_POST['suspend_days'] ?? 0);   // turns back on by itself after this
+        $until  = $status === 'suspended' ? date('Y-m-d H:i:s', strtotime('+' . $days . ' days')) : null;
+        $stmt = $conn->prepare("UPDATE users SET status = ?, suspended_until = ? WHERE id = ?");
+        $stmt->bind_param("ssi", $status, $until, $id);
         $stmt->execute();
         $stmt->close();
-        sf_admin_log($conn, 'user', $status === 'suspended' ? 'Suspended user account' : 'Reactivated user account',
+        sf_admin_log($conn, 'user', $status === 'suspended' ? 'Suspended user account for ' . $days . ' days' : 'Reactivated user account',
             $target['username'], $status, $status === 'suspended');
         if ($status === 'active') {
             sf_notify($conn, $id, 'security', 'Account reactivated', 'Your Station Finds account is active again. Welcome back!');
         }
         back($tab, 'ok', $target['username'] . ($status === 'suspended'
-            ? ' was suspended. They are logged out, can\'t log in, and their listings are hidden.'
+            ? ' was suspended for ' . $days . ' days, until ' . date('M j, Y', strtotime($until)) . '. They are logged out, can\'t log in, and their listings are hidden; the account turns back on by itself after that.'
             : ' was reactivated.'));
 
     } elseif ($action === 'add_user') {
@@ -237,8 +243,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // New admins start with no areas; a super admin picks them in Settings › Roles & permissions
             $access = $addValues['role'] === 'admin' ? '' : null;
-            $stmt = $conn->prepare("INSERT INTO users (username, full_name, email, password, role, status, admin_access) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssssss", $username, $addValues['full_name'], $addValues['email'], $hash, $addValues['role'], $addValues['status'], $access);
+            $until = $addValues['status'] === 'suspended' ? date('Y-m-d H:i:s', strtotime('+' . SF_SUSPEND_DAYS[0] . ' days')) : null;   // ends by itself
+            $stmt = $conn->prepare("INSERT INTO users (username, full_name, email, password, role, status, admin_access, suspended_until) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("ssssssss", $username, $addValues['full_name'], $addValues['email'], $hash, $addValues['role'], $addValues['status'], $access, $until);
             $stmt->execute();
             $stmt->close();
             sf_admin_log($conn, 'user', $addValues['role'] === 'admin' ? 'Created admin account' : 'Created user account',
@@ -253,7 +260,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // ── Everyone, with what they do on the marketplace ──────────────
 $users = $conn->query("SELECT u.id, u.username, u.full_name, u.email, u.role, u.status, UNIX_TIMESTAMP(u.created_at) AS joined,
-           u.avatar, u.id_status, u.id_type, u.id_note, UNIX_TIMESTAMP(u.id_submitted_at) AS id_submitted, UNIX_TIMESTAMP(u.id_reviewed_at) AS id_reviewed,
+           u.avatar, UNIX_TIMESTAMP(u.suspended_until) AS suspended_until, u.id_status, u.id_type, u.id_note, UNIX_TIMESTAMP(u.id_submitted_at) AS id_submitted, UNIX_TIMESTAMP(u.id_reviewed_at) AS id_reviewed,
            UNIX_TIMESTAMP(u.last_login_at) AS last_login, u.last_login_ip,
            s.store_name,
            (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id) AS orders,
@@ -323,7 +330,7 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css?v=26" />
+  <link rel="stylesheet" href="css/admin.css?v=28" />
   <link rel="stylesheet" href="css/admin-shell.css?v=6" />
 </head>
 <body>
@@ -443,6 +450,7 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
                       'id' => (int) $u['id'], 'name' => $name, 'fullName' => $u['full_name'], 'username' => $u['username'], 'email' => $u['email'],
                       'role' => role_label($u), 'status' => $u['status'], 'joined' => date('M j, Y', $u['joined']),
                       'log' => [$login, ucfirst($activity)], 'initials' => $initials($u), 'photo' => sf_avatar_url($u['avatar']),
+                      'until' => $u['suspended_until'] ? date('M j, Y', $u['suspended_until']) : '',
                       'isAdmin' => $isAdminRow, 'isYou' => (int) $u['id'] === $adminId,
                       'canEdit' => !$isAdminRow || (int) $u['id'] === $adminId || sf_admin_access($conn)['full'],
                       'deleteBlock' => $isAdminRow ? 'Admin accounts can\'t be deleted here.'
@@ -458,7 +466,7 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
                   </td>
                   <td><?php echo $e(role_label($u)); ?></td>
                   <td><?php echo date('M j, Y', $u['joined']); ?></td>
-                  <td><span class="status-chip <?php echo $u['status'] === 'suspended' ? 'suspended' : 'active'; ?>"><?php echo $u['status'] === 'suspended' ? 'Suspended' : 'Active'; ?></span></td>
+                  <td><span class="status-chip <?php echo $u['status'] === 'suspended' ? 'suspended' : 'active'; ?>"><?php echo $u['status'] === 'suspended' ? 'Suspended' : 'Active'; ?></span><?php if ($u['status'] === 'suspended'): ?><span class="status-until"><?php echo $u['suspended_until'] ? 'until ' . date('M j', $u['suspended_until']) : 'no end date'; ?></span><?php endif; ?></td>
                   <td class="col-action"><button type="button" class="manage-btn" onclick='openManage(<?php echo json_encode($info, JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>Manage</button></td>
                 </tr>
                 <?php endforeach; ?>
@@ -528,6 +536,13 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
       <form method="post" id="mForm">
         <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
         <input type="hidden" name="id" id="mId" />
+        <div class="adm-field suspend-length" id="mDaysField">
+          <label for="mDays">Suspend for</label>
+          <select id="mDays" name="suspend_days">
+            <?php foreach (SF_SUSPEND_DAYS as $d): ?><option value="<?php echo $d; ?>"><?php echo $d; ?> days</option><?php endforeach; ?>
+          </select>
+          <span class="adm-field-hint">The account turns back on by itself after this. You can reactivate it sooner.</span>
+        </div>
         <div class="card-modal-actions">
           <button type="submit" name="action" id="mAction" class="filter-button"></button>
           <button type="button" class="export-button" id="mEditBtn" onclick="showEdit(true)">Edit User</button>
@@ -568,6 +583,13 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
           <option value="active">Active</option>
           <option value="suspended">Suspended</option>
         </select>
+      </div>
+      <div class="adm-field" id="eDaysField" hidden>
+        <label for="e_days">Suspend for</label>
+        <select id="e_days" name="suspend_days">
+          <?php foreach (SF_SUSPEND_DAYS as $d): ?><option value="<?php echo $d; ?>"><?php echo $d; ?> days</option><?php endforeach; ?>
+        </select>
+        <span class="adm-field-hint">The account turns back on by itself after this.</span>
       </div>
       <div class="card-modal-actions">
         <button type="button" class="filter-button" onclick="showEdit(false)">Cancel</button>
@@ -669,6 +691,13 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
       else box.textContent = u.initials;
     }
 
+    // Edit: "Suspend for" only when changing an active account to Suspended
+    let editWasSuspended = false;
+    function toggleEditDays() {
+      document.getElementById('eDaysField').hidden = editWasSuspended || document.getElementById('e_status').value !== 'suspended';
+    }
+    document.addEventListener('DOMContentLoaded', () => { document.getElementById('e_status').addEventListener('change', toggleEditDays); });
+
     // Manage: fill the modal with this user's details and the right action
     function openManage(u) {
       const set = (id, text) => { document.getElementById(id).textContent = text; };
@@ -678,7 +707,10 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
       set('mRole', u.role);
       set('mJoined', u.joined);
       const status = document.getElementById('mStatus');
-      status.textContent = u.status === 'suspended' ? 'Suspended' : 'Active';
+      status.textContent = u.status === 'suspended' ? 'Suspended ' + (u.until ? 'until ' + u.until : '(no end date)') : 'Active';
+      document.getElementById('mDaysField').hidden = u.isAdmin || u.status === 'suspended';
+      document.getElementById('mDays').value = '<?php echo SF_SUSPEND_DAYS[0]; ?>';
+      editWasSuspended = u.status === 'suspended';
       status.className = 'review-status ' + (u.status === 'suspended' ? 'flagged' : 'resolved');
       set('mLog', u.log.join(' '));
       document.getElementById('mId').value = u.id;
@@ -721,6 +753,7 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
       status.value = v.status === 'suspended' ? 'suspended' : 'active';
       status.disabled = v.role === 'admin';
       tintStatus();
+      toggleEditDays();
     }
     function tintStatus() {
       const status = document.getElementById('e_status');

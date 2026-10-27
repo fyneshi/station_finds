@@ -476,9 +476,17 @@ body {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* "Browse as a guest" under the log in form */
-.guest-browse-link {
-  display: block; margin-top: 18px; padding-top: 16px; border-top: 1px solid #f1ece4;
-  text-align: center; font-size: 13.5px; font-weight: 600; color: #64748b; text-decoration: none;
-}
-.guest-browse-link:hover { color: #18232A; text-decoration: underline; }
+/* The logo (top left) is a link to the home page, browsing as a guest */
+a.brand-logo-badge { display: block; width: fit-content; border-radius: 12px; cursor: pointer; transition: opacity .15s ease; }
+a.brand-logo-badge:hover { opacity: .85; }
+a.brand-logo-badge:focus-visible { outline: 2px solid #d4a843; outline-offset: 6px; }
+
+/* ── Contact support (login page): appeals for suspended accounts and other help ── */
+.support-line { margin-top: 18px; padding-top: 16px; border-top: 1px solid #f1ece4; text-align: center; font-size: 12.5px; color: #64748b; }
+.support-line .link-action { font-size: 12.5px; }
+.auth-notice { margin-bottom: 16px; padding: 12px 14px; border: 1px solid #fecaca; border-radius: 12px; background: #fef2f2; color: #991b1b; font-size: 13px; line-height: 1.5; }
+.auth-notice .link-action { color: #991b1b; font-size: 13px; font-weight: 700; text-decoration: underline; }
+select.form-input { appearance: auto; cursor: pointer; }
+.form-textarea { height: auto; min-height: 110px; padding: 12px 14px; line-height: 1.5; resize: vertical; font-family: inherit; }
+#supportDone { padding: 14px; border-radius: 12px; background: #f0fdf4; color: #166534; font-weight: 600; }
+#supportDone[hidden] { display: none; }

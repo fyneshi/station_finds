@@ -48,9 +48,9 @@ a.adm-nav-item:hover { background: #27363f; color: #fff; }
 .adm-search:focus-within { border-color: #e9ba32; }
 .adm-search-spacer { flex: 0 1 560px; }
 .adm-topbar-actions { display: flex; align-items: center; gap: 16px; margin-left: auto; }
-.adm-bell { position: relative; display: grid; place-items: center; color: #fff9f0; }
+.adm-bell { position: relative; display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 249, 240, .08); color: #fff9f0; cursor: pointer; transition: background-color .15s, color .15s; }
+.adm-bell[aria-expanded="true"] { background: rgba(233, 186, 50, .2); color: #e9ba32; }
 .adm-bell:hover { color: #e9ba32; }
-.adm-bell-dot { position: absolute; top: -2px; right: -3px; width: 8px; height: 8px; border-radius: 50%; background: #e9ba32; box-shadow: 0 0 0 2px #18252d; }
 .adm-menu-toggle { display: none; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: #fff9f0; cursor: pointer; }
 
 .adm-nav-item:focus-visible, .adm-bell:focus-visible, .adm-menu-toggle:focus-visible, .adm-brand:focus-visible { outline: 2px solid #e9ba32; outline-offset: 2px; }
@@ -69,3 +69,40 @@ a.adm-nav-item:hover { background: #27363f; color: #fff; }
 @media (max-width: 860px) {
   .adm-main .shop-wrapper { padding: 22px 16px 40px; }
 }
+
+/* ── Notifications panel (the bell, like Facebook's) ── */
+.adm-bell-wrap { position: relative; }
+.adm-bell-count { position: absolute; top: -4px; right: -6px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: #e41e3f; color: #fff; font-size: 11px; font-weight: 800; line-height: 19px; text-align: center; box-shadow: 0 0 0 2px #18252d; }
+.adm-bell-panel { position: absolute; top: calc(100% + 12px); right: -8px; z-index: 300; display: flex; flex-direction: column; width: min(380px, calc(100vw - 24px)); max-height: min(640px, calc(100vh - 90px));
+  border: 1px solid #e5dccd; border-radius: 12px; background: #fff; color: #18252d; box-shadow: 0 12px 32px rgba(24, 37, 45, .28); font-family: inherit; }
+.adm-bell-panel[hidden] { display: none; }
+.bell-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 16px 6px; }
+.bell-head h2 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.3px; }
+.bell-read-all { padding: 6px 8px; border: 0; border-radius: 6px; background: none; color: #a16207; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.bell-read-all:hover { background: #fdf3dc; }
+.bell-tabs { display: flex; gap: 6px; padding: 4px 16px 6px; }
+.bell-tab { padding: 7px 13px; border: 0; border-radius: 18px; background: none; color: #18252d; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.bell-tab:hover { background: #f1ece2; }
+.bell-tab.active { background: #fdf3dc; color: #a16207; }
+.bell-list { flex: 1; overflow-y: auto; padding: 0 8px 6px; }
+.bell-section { margin: 10px 8px 4px; font-size: 16px; font-weight: 800; }
+.bell-section[hidden], .bell-item[hidden] { display: none; }
+.bell-item { margin: 0; }
+.bell-item button { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 30px 8px 8px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.bell-item button:hover, .bell-item button:focus-visible { background: #f6f2ea; outline: none; }
+.bell-icon { display: grid; place-items: center; flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; background: #f1ece2; color: #18252d; }
+.bell-icon svg { width: 22px; height: 22px; }
+.bell-icon.flagged, .bell-icon.action { background: #fde8e8; color: #b91c1c; }
+.bell-icon.pending, .bell-icon.new { background: #fdf3dc; color: #a16207; }
+.bell-icon.done { background: #dcf3e4; color: #15803d; }
+.bell-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bell-line { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 14px; line-height: 1.35; color: #3b4a53; }
+.bell-line strong { color: #18252d; }
+.bell-item time { font-size: 12.5px; color: #7c8a99; }
+.bell-item.unread .bell-line { color: #18252d; }
+.bell-item.unread time { font-weight: 700; color: #a16207; }
+.bell-dot { position: absolute; right: 10px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: #e9ba32; }
+.bell-empty { margin: 18px 12px; font-size: 14px; color: #7c8a99; text-align: center; }
+.bell-see-all { display: block; margin: 0 8px 8px; padding: 10px; border-radius: 8px; background: #f1ece2; color: #18252d; font-size: 14px; font-weight: 700; text-align: center; text-decoration: none; }
+.bell-see-all:hover { background: #e9e1d2; }
+@media (max-width: 560px) { .adm-bell-panel { position: fixed; top: 64px; right: 12px; left: 12px; width: auto; } }

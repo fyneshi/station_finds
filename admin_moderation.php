@@ -207,7 +207,7 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/admin.css?v=25" />
-  <link rel="stylesheet" href="css/admin-shell.css?v=5" />
+  <link rel="stylesheet" href="css/admin-shell.css?v=6" />
 </head>
 <body>
 

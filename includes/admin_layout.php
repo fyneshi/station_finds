@@ -287,15 +287,20 @@ function sf_admin_menu() {
         'promos'        => ['Promo Codes', 'admin_promos.php', '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>'],
         'reports'       => ['Reports', 'admin_reports.php', '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'],
         'activity'      => ['Activity / Audit Logs', 'admin_logs.php', '<path d="M2 12h5l3-9 4 18 3-9h5"/>'],
-        'notifications' => ['Notifications', 'admin_notifications.php', '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'],
     ];
 }
+const SF_BELL_ICON = '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>';
+const SF_BELL_SHOWN = 20;   // notifications in the bell's drop-down (the rest: See all)
 
 function sf_admin_shell_start($active, $searchPlaceholder = null) {
     global $conn;
     $counts   = sf_admin_counts($conn);
-    $unread   = count(array_filter(sf_admin_events($conn, (int) ($_SESSION['user_id'] ?? 0)), fn($ev) => $ev['unread']));
-    $badges   = $counts + ['notifications' => $unread];   // sidebar key => number waiting
+    $events   = sf_admin_events($conn, (int) ($_SESSION['user_id'] ?? 0));
+    $unread   = count(array_filter($events, fn($ev) => $ev['unread']));
+    $badges   = $counts;   // sidebar key => number waiting
+    $menu     = sf_admin_menu();
+    $csrf     = sf_csrf_token();
+    $here     = basename($_SERVER['SCRIPT_NAME']) . (isset($_GET['tab']) && preg_match('/^[a-z-]+$/', $_GET['tab']) ? '?tab=' . $_GET['tab'] : '');
     $name     = $_SESSION['username'] ?? 'Admin';
     $initials = strtoupper(mb_substr($name, 0, 2));
     $e        = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -336,9 +341,57 @@ function sf_admin_shell_start($active, $searchPlaceholder = null) {
         <label class="adm-search"><?php echo $icon('<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'); ?><input type="search" id="adminSearch" placeholder="<?php echo $e($searchPlaceholder); ?>" aria-label="<?php echo $e($searchPlaceholder); ?>" autocomplete="off" /></label>
         <?php else: ?><span class="adm-search-spacer"></span><?php endif; ?>
         <div class="adm-topbar-actions">
-          <a href="admin_notifications.php" class="adm-bell" aria-label="Notifications<?php echo $unread ? ', ' . $unread . ' unread' : ''; ?>">
-            <?php echo $icon('<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'); ?><?php if ($unread): ?><span class="adm-bell-dot"></span><?php endif; ?>
-          </a>
+          <!-- Notifications (like Facebook): the bell opens a panel; See all opens admin_notifications.php -->
+          <div class="adm-bell-wrap">
+            <button type="button" class="adm-bell" id="admBell" aria-haspopup="dialog" aria-expanded="false" aria-controls="admBellPanel" aria-label="Notifications<?php echo $unread ? ', ' . $unread . ' unread' : ''; ?>">
+              <?php echo $icon(SF_BELL_ICON); ?><?php if ($unread): ?><span class="adm-bell-count"><?php echo $unread > 99 ? '99+' : $unread; ?></span><?php endif; ?>
+            </button>
+            <div class="adm-bell-panel" id="admBellPanel" role="dialog" aria-label="Notifications" hidden>
+              <div class="bell-head">
+                <h2>Notifications</h2>
+                <?php if ($unread): ?>
+                <form method="post" action="admin_notifications.php">
+                  <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
+                  <input type="hidden" name="action" value="read_all" />
+                  <input type="hidden" name="back" value="<?php echo $e($here); ?>" />
+                  <button type="submit" class="bell-read-all">Mark all as read</button>
+                </form>
+                <?php endif; ?>
+              </div>
+              <div class="bell-tabs" role="tablist">
+                <button type="button" class="bell-tab active" role="tab" aria-selected="true" data-show="all">All</button>
+                <button type="button" class="bell-tab" role="tab" aria-selected="false" data-show="unread">Unread</button>
+              </div>
+              <div class="bell-list">
+                <?php
+                  $shown = array_slice($events, 0, SF_BELL_SHOWN);
+                  $today = strtotime('today');
+                  $sections = ['New' => array_filter($shown, fn($ev) => $ev['ts'] >= $today), 'Earlier' => array_filter($shown, fn($ev) => $ev['ts'] < $today)];
+                  foreach ($sections as $heading => $list): if (!$list) continue;
+                ?>
+                <p class="bell-section"><?php echo $heading; ?></p>
+                <?php foreach ($list as $ev): ?>
+                <form method="post" action="admin_notifications.php" class="bell-item<?php echo $ev['unread'] ? ' unread' : ''; ?>">
+                  <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
+                  <input type="hidden" name="action" value="open" />
+                  <input type="hidden" name="key" value="<?php echo $e($ev['key']); ?>" />
+                  <input type="hidden" name="go" value="<?php echo $e($ev['go']); ?>" />
+                  <button type="submit">
+                    <span class="bell-icon <?php echo $e($ev['tone']); ?>"><?php echo $icon($menu[$ev['icon']][2] ?? SF_BELL_ICON); ?></span>
+                    <span class="bell-text">
+                      <span class="bell-line"><strong><?php echo $e($ev['title']); ?></strong> · <?php echo $e($ev['text']); ?></span>
+                      <time datetime="<?php echo date('c', $ev['ts']); ?>"><?php echo $e(sf_time_ago($ev['ts'])); ?></time>
+                    </span>
+                    <?php if ($ev['unread']): ?><span class="bell-dot" aria-label="Unread"></span><?php endif; ?>
+                  </button>
+                </form>
+                <?php endforeach; endforeach; ?>
+                <p class="bell-empty"<?php echo $events ? ' hidden' : ''; ?> data-empty-all>You're all caught up. New activity will show up here.</p>
+                <p class="bell-empty" hidden data-empty-unread>No unread notifications.</p>
+              </div>
+              <a href="admin_notifications.php" class="bell-see-all">See all notifications</a>
+            </div>
+          </div>
           <span class="adm-avatar" title="<?php echo $e($name); ?>"><?php echo $e($initials); ?></span>
         </div>
       </header>
@@ -361,6 +414,28 @@ function sf_admin_shell_end() {
         const open = sidebar.classList.toggle('is-open');
         toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
       });
+      // Notifications panel: the bell opens it; a click outside or Esc closes it
+      const bell = document.getElementById('admBell');
+      const panel = document.getElementById('admBellPanel');
+      const setOpen = open => { panel.hidden = !open; bell.setAttribute('aria-expanded', String(open)); };
+      bell.addEventListener('click', e => { e.stopPropagation(); setOpen(panel.hidden); });
+      document.addEventListener('click', e => { if (!panel.hidden && !panel.contains(e.target)) setOpen(false); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) { setOpen(false); bell.focus(); } });
+      // All / Unread
+      panel.querySelectorAll('.bell-tab').forEach(tab => tab.addEventListener('click', () => {
+        const unreadOnly = tab.dataset.show === 'unread';
+        panel.querySelectorAll('.bell-tab').forEach(t => { t.classList.toggle('active', t === tab); t.setAttribute('aria-selected', String(t === tab)); });
+        panel.querySelectorAll('.bell-item').forEach(item => { item.hidden = unreadOnly && !item.classList.contains('unread'); });
+        panel.querySelectorAll('.bell-section').forEach(head => {
+          let next = head.nextElementSibling, any = false;
+          while (next && next.classList.contains('bell-item')) { if (!next.hidden) any = true; next = next.nextElementSibling; }
+          head.hidden = !any;
+        });
+        const items = [...panel.querySelectorAll('.bell-item')];
+        panel.querySelector('[data-empty-unread]').hidden = !unreadOnly || items.some(i => !i.hidden);
+        panel.querySelector('[data-empty-all]').hidden = unreadOnly || items.length > 0;
+      }));
+
       const search = document.getElementById('adminSearch');
       if (search) search.addEventListener('input', () => {
         if (typeof window.onAdminSearch === 'function') window.onAdminSearch(search.value.trim().toLowerCase());

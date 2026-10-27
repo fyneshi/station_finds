@@ -141,7 +141,7 @@ $menu     = sf_admin_menu();
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/admin.css?v=25" />
-  <link rel="stylesheet" href="css/admin-shell.css?v=5" />
+  <link rel="stylesheet" href="css/admin-shell.css?v=6" />
 </head>
 <body>
 
@@ -225,7 +225,7 @@ $menu     = sf_admin_menu();
 
         <!-- ── Notification preferences ── -->
         <section class="settings-card">
-          <h2><span class="settings-icon"><?php echo $icon($menu['notifications'][2]); ?></span>Notification preferences</h2>
+          <h2><span class="settings-icon"><?php echo $icon(SF_BELL_ICON); ?></span>Notification preferences</h2>
           <p class="settings-sub">Choose what shows up in <a href="admin_notifications.php">Notifications</a> and on the bell. Press Save Changes when you're done.</p>
           <form method="post" id="prefsForm">
             <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />

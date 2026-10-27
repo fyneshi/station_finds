@@ -34,7 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute();
         $stmt->close();
         $_SESSION['flash'] = ['ok', 'All notifications are marked as read.'];
-        header('Location: admin_notifications.php');
+        // From the bell's panel: back to the page they were on
+        $back = (string) ($_POST['back'] ?? '');
+        header('Location: ' . (preg_match('/^admin_[a-z]+\.php(\?tab=[a-z-]+)?$/', $back) ? $back : 'admin_notifications.php'));
         exit;
     } elseif (($_POST['action'] ?? '') === 'open') {
         $key = (string) ($_POST['key'] ?? '');
@@ -72,7 +74,7 @@ $csrf    = sf_csrf_token();
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/admin.css?v=25" />
-  <link rel="stylesheet" href="css/admin-shell.css?v=5" />
+  <link rel="stylesheet" href="css/admin-shell.css?v=6" />
 </head>
 <body>
 
@@ -89,7 +91,7 @@ $csrf    = sf_csrf_token();
             <input type="hidden" name="action" value="read_all" />
             <button type="submit" class="export-button"<?php echo $unread ? '' : ' disabled'; ?>>Mark All as Read</button>
           </form>
-          <span class="notif-bell<?php echo $unread ? ' has-unread' : ''; ?>" title="<?php echo $unread ? $unread . ' unread' : 'All caught up'; ?>"><?php echo $icon($menu['notifications'][2]); ?><?php if ($unread): ?><em><?php echo $unread > 99 ? '99+' : $unread; ?></em><?php endif; ?></span>
+          <span class="notif-bell<?php echo $unread ? ' has-unread' : ''; ?>" title="<?php echo $unread ? $unread . ' unread' : 'All caught up'; ?>"><?php echo $icon(SF_BELL_ICON); ?><?php if ($unread): ?><em><?php echo $unread > 99 ? '99+' : $unread; ?></em><?php endif; ?></span>
         </div>
       </header>
 

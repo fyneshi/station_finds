@@ -131,6 +131,9 @@ a.stat-card:hover, button.stat-card:hover { border-color: var(--yellow); box-sha
 .user-cell > span:last-child > span, .listing-cell > span:last-child > span { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .user-avatar { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; background: var(--yellow); color: var(--navy); font-size: 13px; font-weight: 800; }
 .user-avatar.muted { background: #e4e7ea; color: #9aa5b1; }
+.user-avatar { overflow: hidden; }
+.user-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.user-avatar.muted img { filter: grayscale(1); opacity: .6; }
 .status-chip { display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
 .status-chip.active { background: #d1ecd9; color: #006c34; }
 .status-chip.suspended { background: #fff2c5; color: #a64c00; }

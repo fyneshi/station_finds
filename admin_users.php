@@ -253,7 +253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // ── Everyone, with what they do on the marketplace ──────────────
 $users = $conn->query("SELECT u.id, u.username, u.full_name, u.email, u.role, u.status, UNIX_TIMESTAMP(u.created_at) AS joined,
-           u.id_status, u.id_type, u.id_note, UNIX_TIMESTAMP(u.id_submitted_at) AS id_submitted, UNIX_TIMESTAMP(u.id_reviewed_at) AS id_reviewed,
+           u.avatar, u.id_status, u.id_type, u.id_note, UNIX_TIMESTAMP(u.id_submitted_at) AS id_submitted, UNIX_TIMESTAMP(u.id_reviewed_at) AS id_reviewed,
            UNIX_TIMESTAMP(u.last_login_at) AS last_login, u.last_login_ip,
            s.store_name,
            (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id) AS orders,
@@ -309,6 +309,9 @@ $idChips = ['pending' => ['Pending', 'suspended'], 'verified' => ['Verified', 'a
 $e    = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $csrf = sf_csrf_token();
 $initials = fn($u) => $u['full_name'] !== '' ? sf_initials($u['full_name']) : strtoupper(mb_substr($u['username'], 0, 2));
+// Inside an avatar circle: their profile picture, or their initials
+$avatar = fn($u) => sf_avatar_url($u['avatar'] ?? '') !== ''
+    ? '<img src="' . $e(sf_avatar_url($u['avatar'])) . '" alt="" />' : $e($initials($u));
 $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' . $paths . '</svg>';
 ?>
 <!DOCTYPE html>
@@ -320,7 +323,7 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css?v=25" />
+  <link rel="stylesheet" href="css/admin.css?v=26" />
   <link rel="stylesheet" href="css/admin-shell.css?v=6" />
 </head>
 <body>
@@ -401,7 +404,7 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
                 <tr data-name="<?php echo $e(mb_strtolower($name . ' ' . $u['username'] . ' ' . $u['email'])); ?>" data-joined="<?php echo (int) $u['id_submitted']; ?>" data-sort-name="<?php echo $e(mb_strtolower($name)); ?>">
                   <td>
                     <div class="user-cell">
-                      <span class="user-avatar"><?php echo $e($initials($u)); ?></span>
+                      <span class="user-avatar"><?php echo $avatar($u); ?></span>
                       <span><strong><?php echo $e($name); ?></strong><span><?php echo $e($u['email']); ?></span></span>
                     </div>
                   </td>
@@ -439,7 +442,7 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
                   $info = [
                       'id' => (int) $u['id'], 'name' => $name, 'fullName' => $u['full_name'], 'username' => $u['username'], 'email' => $u['email'],
                       'role' => role_label($u), 'status' => $u['status'], 'joined' => date('M j, Y', $u['joined']),
-                      'log' => [$login, ucfirst($activity)], 'initials' => $initials($u),
+                      'log' => [$login, ucfirst($activity)], 'initials' => $initials($u), 'photo' => sf_avatar_url($u['avatar']),
                       'isAdmin' => $isAdminRow, 'isYou' => (int) $u['id'] === $adminId,
                       'canEdit' => !$isAdminRow || (int) $u['id'] === $adminId || sf_admin_access($conn)['full'],
                       'deleteBlock' => $isAdminRow ? 'Admin accounts can\'t be deleted here.'
@@ -449,7 +452,7 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
                 <tr data-name="<?php echo $e(mb_strtolower($name . ' ' . $u['username'] . ' ' . $u['email'])); ?>" data-joined="<?php echo (int) $u['joined']; ?>" data-sort-name="<?php echo $e(mb_strtolower($name)); ?>">
                   <td>
                     <div class="user-cell">
-                      <span class="user-avatar<?php echo $u['status'] === 'suspended' ? ' muted' : ''; ?>"><?php echo $e($initials($u)); ?></span>
+                      <span class="user-avatar<?php echo $u['status'] === 'suspended' ? ' muted' : ''; ?>"><?php echo $avatar($u); ?></span>
                       <span><strong><?php echo $e($name); ?></strong><span><?php echo $e($u['email']); ?></span></span>
                     </div>
                   </td>
@@ -658,10 +661,18 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
       }
     });
 
+    // An avatar circle: their profile picture, or their initials
+    function setAvatar(id, u) {
+      const box = document.getElementById(id);
+      box.replaceChildren();
+      if (u.photo) { const img = document.createElement('img'); img.src = u.photo; img.alt = ''; box.append(img); }
+      else box.textContent = u.initials;
+    }
+
     // Manage: fill the modal with this user's details and the right action
     function openManage(u) {
       const set = (id, text) => { document.getElementById(id).textContent = text; };
-      set('mAvatar', u.initials);
+      setAvatar('mAvatar', u);
       set('manageTitle', u.name);
       set('mEmail', u.email);
       set('mRole', u.role);
@@ -683,7 +694,7 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
       set('mNote', u.deleteBlock ? (u.isYou ? 'This is your account.' : u.deleteBlock) : '');
 
       // Edit form starts from their current details
-      fillUserEdit({ id: u.id, name: u.name, initials: u.initials, fullName: u.fullName, email: u.email,
+      fillUserEdit({ id: u.id, name: u.name, initials: u.initials, photo: u.photo, fullName: u.fullName, email: u.email,
                      role: u.isAdmin ? 'admin' : 'user', roleLabel: u.isAdmin ? 'Buyer' : u.role, status: u.status, isYou: u.isYou });
       document.querySelectorAll('#mEditForm .adm-field-error').forEach(el => el.remove());
       document.querySelectorAll('#mEditForm .has-error').forEach(el => el.classList.remove('has-error'));
@@ -695,7 +706,7 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
     const SUPER = <?php echo json_encode(sf_admin_access($conn)['full']); ?>;
     function fillUserEdit(v) {
       document.getElementById('eId').value = v.id;
-      document.getElementById('eAvatar').textContent = v.initials;
+      setAvatar('eAvatar', v);
       document.getElementById('eCurrent').textContent = v.name;
       if (v.fullName !== undefined) document.getElementById('e_full_name').value = v.fullName;
       if (v.email !== undefined) document.getElementById('e_email').value = v.email;
@@ -737,7 +748,7 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
     <?php if ($editErrors): ?>
     <?php $editTarget = $editValues ? (array_values(array_filter($users, fn($u) => (int) $u['id'] === $editValues['id']))[0] ?? null) : null; ?>
     <?php if ($editTarget): ?>
-    fillUserEdit(<?php echo json_encode(['id' => $editValues['id'], 'name' => $editTarget['full_name'] !== '' ? $editTarget['full_name'] : $editTarget['username'], 'initials' => $initials($editTarget), 'role' => $editValues['role'], 'roleLabel' => $editTarget['role'] === 'admin' ? 'Buyer' : role_label($editTarget), 'status' => $editValues['status'], 'isYou' => $editValues['id'] === $adminId], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
+    fillUserEdit(<?php echo json_encode(['id' => $editValues['id'], 'name' => $editTarget['full_name'] !== '' ? $editTarget['full_name'] : $editTarget['username'], 'initials' => $initials($editTarget), 'photo' => sf_avatar_url($editTarget['avatar']), 'role' => $editValues['role'], 'roleLabel' => $editTarget['role'] === 'admin' ? 'Buyer' : role_label($editTarget), 'status' => $editValues['status'], 'isYou' => $editValues['id'] === $adminId], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
     <?php endif; ?>
     { showEdit(true); openModal('manageModal'); }   // show what needs fixing
     <?php endif; ?>

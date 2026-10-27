@@ -35,6 +35,12 @@ $userId    = (int) ($_SESSION['user_id'] ?? 0);
 $listingId = (int) substr($item['id'], 8);
 $pageLink  = 'rental_detail.php?id=' . $item['id'];
 $isOwner   = $item['seller_id'] === $userId;
+// Renting needs a verified ID: '' (guests see Log in instead) | verified | pending | none
+$idState = '';
+if ($userId && !$isOwner) {
+    $idRow   = $conn->query("SELECT id_status FROM users WHERE id = " . $userId)->fetch_assoc();
+    $idState = sf_id_verified($conn, $userId) ? 'verified' : (($idRow['id_status'] ?? '') === 'pending' ? 'pending' : 'none');
+}
 
 // Questions & Comments: post a question or a reply (comments.php), then come back to the list
 [$commentError, $commentDraft] = sf_handle_comment_post($conn, $item, $userId, $pageLink);
@@ -53,7 +59,7 @@ $when      = fn($ts) => date('M j, Y', $ts);
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/detail.css?v=14" />
+  <link rel="stylesheet" href="css/detail.css?v=15" />
   <link rel="stylesheet" href="css/header.css?v=1" />
   <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
@@ -160,7 +166,15 @@ $when      = fn($ts) => date('M j, Y', $ts);
         <?php if ($isOwner): ?>
         <a href="listing_form.php?id=<?php echo $listingId; ?>" class="btn-primary-full as-link">This is your listing · Edit it</a>
         <?php else: ?>
+        <?php if ($idState === 'none'): ?>
+        <a href="<?php echo SF_VERIFY_LINK; ?>" class="btn-primary-full as-link">Verify your ID to rent</a>
+        <p class="id-verify-note">Renting needs a verified ID. Upload a valid ID once; an admin checks it, then you can rent anything.</p>
+        <?php elseif ($idState === 'pending'): ?>
+        <button type="button" class="btn-primary-full" disabled>Request rental</button>
+        <p class="id-verify-note">Your ID is being reviewed. You can request rentals as soon as an admin approves it.</p>
+        <?php else: ?>
         <button type="button" class="btn-primary-full" id="buyNowBtn" onclick="openRentalRequest()">Request rental</button>
+        <?php endif; ?>
         <a href="<?php echo $item['seller_id'] ? 'messages.php?with=' . $item['seller_id'] : 'messages.php'; ?>" class="detail-message-link">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
           Message owner about terms &amp; deposit
@@ -317,6 +331,7 @@ $when      = fn($ts) => date('M j, Y', $ts);
 
   <script src="js/cart.js?v=6"></script>
   <script src="js/inbox.js?v=4"></script>
+  <script src="js/report.js?v=3"></script>
   <script>
     const ITEM_ID = <?php echo json_encode($item['id']); ?>;
     const DAILY_RATE = <?php echo json_encode($item['price']); ?>;

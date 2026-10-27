@@ -60,8 +60,8 @@ function back_to($tab, $type, $message) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if (empty($_POST) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
-        $flash = ['err', 'That photo is too large to upload. Profile pictures can be up to 3 MB.'];
-        $tab   = 'profile';
+        $flash = ['err', 'That upload is too large. Each photo can be up to 3 MB for a profile picture, or 5 MB otherwise.'];
+        $tab   = in_array($_GET['tab'] ?? '', $tabs, true) ? $_GET['tab'] : 'profile';
     } elseif (!sf_check_csrf()) {
         $flash = ['err', 'Your session expired. Please try again.'];
     } elseif ($action === 'update_avatar') {
@@ -258,6 +258,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = sf_cancel_order_item($conn, $userId, (int) ($_POST['item'] ?? 0), (string) ($_POST['reason'] ?? ''));
         back_to('buyer', $error ? 'err' : 'ok', $error ?: 'Cancelled. The seller has been told.');
 
+    } elseif ($action === 'request_return') {
+        $error = sf_request_return($conn, $userId, (int) ($_POST['item'] ?? 0), (string) ($_POST['reason'] ?? ''),
+            (string) ($_POST['details'] ?? ''), sf_uploaded_files('photos'));
+        back_to('buyer', $error ? 'err' : 'ok', $error ?: 'Your return / refund request was sent. The owner will accept or decline it; you\'ll get a notification.');
+
+    } elseif ($seller && $action === 'answer_return') {
+        $accept = ($_POST['decision'] ?? '') === 'accept';
+        $error  = sf_answer_return($conn, $userId, (int) ($_POST['item'] ?? 0), $accept, (string) ($_POST['note'] ?? ''));
+        back_to('seller', $error ? 'err' : 'ok', $error ?: ($accept
+            ? 'Refund accepted. The renter has been told, and this rental no longer counts toward your earnings.'
+            : 'Request declined. The renter has been told, and an admin will review it.'));
+
+    } elseif ($action === 'submit_id') {
+        $error = sf_submit_renter_id($conn, $user, (string) ($_POST['id_type'] ?? ''), $_FILES['id_front'] ?? null, $_FILES['id_selfie'] ?? null);
+        if ($error) {
+            $flash = ['err', $error];
+            $tab   = 'profile';
+        } else {
+            $_SESSION['flash'] = ['ok', 'Your ID was sent for review. You\'ll get a notification once an admin checks it.'];
+            header('Location: account.php?tab=profile#verify');
+            exit;
+        }
+
     } elseif ($action === 'open_dispute') {
         $error = sf_open_dispute($conn, $userId, (int) ($_POST['item'] ?? 0), (string) ($_POST['reason'] ?? ''), (string) ($_POST['details'] ?? ''));
         back_to('buyer', $error ? 'err' : 'ok', $error ?: 'Your report was sent. An admin will review it and get back to you through your notifications.');
@@ -286,6 +309,7 @@ if ($tab === 'buyer') {
     $stats  = sf_buyer_stats($conn, $userId);
     $rated  = sf_rated_items($conn, $userId, 'buyer');    // order items already rated by this buyer
 }
+$idVerified = sf_id_verified($conn, $userId);   // renting needs a verified ID (Edit Profile › ID verification)
 if ($tab === 'seller') {
     $ratedBuyers  = sf_rated_items($conn, $userId, 'seller');
     $sellerRating = sf_seller_rating($conn, $userId);
@@ -335,7 +359,7 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=6" />
-  <link rel="stylesheet" href="css/account.css?v=21" />
+  <link rel="stylesheet" href="css/account.css?v=22" />
   <link rel="stylesheet" href="css/header.css?v=1" />
   <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
@@ -447,6 +471,11 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
             <?php endif; ?>
           </div>
           <p class="panel-sub"><?php echo $sub; ?></p>
+          <?php if ($type === 'rentals' && !$idVerified): ?>
+          <p class="id-banner"><?php echo $user['id_status'] === 'pending'
+              ? 'Your ID is being reviewed. You can rent items as soon as an admin approves it.'
+              : 'Renting needs a verified ID. <a href="' . SF_VERIFY_LINK . '">Verify your ID</a> once and you can rent anything.'; ?></p>
+          <?php endif; ?>
 
           <?php if (!$rows): ?>
           <p class="empty-row">Nothing here yet. <a href="marketplace.php?tab=<?php echo $tabName; ?>">Browse <?php echo $type; ?></a></p>
@@ -483,6 +512,12 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
                 <?php endif; ?>
                 <?php if ($r['fulfillment'] === 'cancelled'): ?>
                 <div class="row-meta dispute-note">You cancelled this<?php echo $r['cancel_reason'] !== '' ? ': ' . $e($r['cancel_reason']) : ''; ?>.</div>
+                <?php elseif ($r['return_status'] === 'requested'): ?>
+                <div class="row-meta dispute-note">Return / refund requested: <?php echo $e($r['return_reason']); ?>. Waiting for the owner to accept or decline.</div>
+                <?php elseif ($r['return_status'] === 'accepted'): ?>
+                <div class="row-meta dispute-note">Refund approved by the owner<?php echo $r['return_response'] !== '' ? ': ' . $e($r['return_response']) : ''; ?>.</div>
+                <?php elseif ($r['return_status'] === 'declined' && $r['dispute_status'] === 'open'): ?>
+                <div class="row-meta dispute-note">The owner declined your return / refund request: <?php echo $e($r['return_response']); ?> An admin is reviewing it.</div>
                 <?php elseif ($r['dispute_status'] === 'open'): ?>
                 <div class="row-meta dispute-note">Problem reported: <?php echo $e($r['dispute_reason']); ?>. An admin is reviewing it.</div>
                 <?php elseif ($r['dispute_status'] === 'resolved'): ?>
@@ -491,7 +526,11 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
                 <?php if ($r['fulfillment'] === 'pending'): ?>
                 <button type="button" class="link-btn cancel-btn" onclick='openCancel(<?php echo (int) $r['id']; ?>, <?php echo json_encode($r['title'], JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT); ?>, <?php echo json_encode($type); ?>)'><?php echo ['products' => 'Cancel order', 'rentals' => 'Cancel rental', 'services' => 'Cancel request'][$type] ?? 'Cancel'; ?></button>
                 <?php endif; ?>
+                <?php if ($type === 'rentals' && in_array($r['fulfillment'], ['active', 'returned'], true)): ?>
+                <button type="button" class="link-btn problem-btn" onclick='openReturn(<?php echo (int) $r['id']; ?>, <?php echo json_encode($r['title'], JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>Request return / refund</button>
+                <?php else: ?>
                 <button type="button" class="link-btn problem-btn" onclick='openDispute(<?php echo (int) $r['id']; ?>, <?php echo json_encode($r['title'], JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>Report a problem</button>
+                <?php endif; ?>
                 <?php endif; ?>
               </div>
             </div>
@@ -555,12 +594,49 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
               <div class="row-text">
                 <span class="row-title"><?php echo $e($s['title']); ?></span>
                 <div class="row-meta">Order #<?php echo $e($s['order_no']); ?> • <?php echo date('M j, Y', $s['ts']); ?> • Buyer: <?php echo $e($s['buyer_name']); ?><?php echo $unit !== '' ? ' • ' . $s['units'] . ' ' . $e(sf_unit_word($unit, $s['units'])) : ''; ?><?php echo $s['quantity'] > 1 ? ' • Qty: ' . (int) $s['quantity'] : ''; ?></div>
+                <?php if ($s['return_status'] === 'requested'): ?>
+                <!-- The renter asked for a return / refund: accept (refund) or decline (an admin then decides) -->
+                <div class="return-box">
+                  <p class="return-box-title">Return / refund requested: <?php echo $e($s['return_reason']); ?></p>
+                  <p class="return-box-text"><?php echo nl2br($e($s['return_details'])); ?></p>
+                  <?php if ($photos = sf_return_photos($s['return_photos'])): ?>
+                  <div class="return-photos">
+                    <?php foreach ($photos as $p): ?><a href="<?php echo $e($p); ?>" target="_blank" rel="noopener"><img src="<?php echo $e($p); ?>" alt="Photo from the renter" loading="lazy" /></a><?php endforeach; ?>
+                  </div>
+                  <?php endif; ?>
+                  <div class="return-actions">
+                    <form method="post" onsubmit="return confirm('Accept and refund <?php echo $e(sf_peso($s['line_total'])); ?> to the renter? This rental will no longer count toward your earnings.')">
+                      <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
+                      <input type="hidden" name="action" value="answer_return" />
+                      <input type="hidden" name="decision" value="accept" />
+                      <input type="hidden" name="item" value="<?php echo (int) $s['id']; ?>" />
+                      <button type="submit" class="btn-primary small">Accept &amp; refund</button>
+                    </form>
+                    <details class="return-decline">
+                      <summary class="btn-outline small">Decline</summary>
+                      <form method="post">
+                        <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
+                        <input type="hidden" name="action" value="answer_return" />
+                        <input type="hidden" name="decision" value="decline" />
+                        <input type="hidden" name="item" value="<?php echo (int) $s['id']; ?>" />
+                        <textarea name="note" class="text-input" maxlength="255" minlength="5" required placeholder="Why are you declining? The renter and an admin will see this."></textarea>
+                        <button type="submit" class="btn-danger small">Decline request</button>
+                      </form>
+                    </details>
+                  </div>
+                </div>
+                <?php elseif ($s['return_status'] === 'accepted'): ?>
+                <div class="row-meta dispute-note">You accepted a return / refund request (<?php echo $e($s['return_reason']); ?>).</div>
+                <?php elseif ($s['return_status'] === 'declined'): ?>
+                <div class="row-meta dispute-note">You declined a return / refund request: <?php echo $e($s['return_response']); ?></div>
+                <?php endif; ?>
               </div>
             </div>
             <div class="listing-side">
               <span class="row-amount"><?php echo sf_peso($s['line_total']); ?></span>
               <span class="status-badge <?php echo sf_status_class($s['item_type'], $s['fulfillment']); ?>"><?php echo $e(sf_fulfillment_label($s['item_type'], $s['fulfillment'])); ?></span>
               <?php if ($s['dispute_status'] === 'open'): ?><span class="status-badge flagged" title="<?php echo $e($s['dispute_reason']); ?>">Disputed</span><?php endif; ?>
+              <?php if ($s['return_status'] === 'requested'): ?><span class="status-badge pending">Return requested</span><?php endif; ?>
               <div class="listing-actions">
                 <a href="messages.php?with=<?php echo (int) $s['buyer_id']; ?>" class="btn-outline small">Message buyer</a>
                 <?php if (isset($ratedBuyers[(int) $s['id']])): ?>
@@ -568,7 +644,7 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
                 <?php elseif (sf_fulfillment_is_final($s['item_type'], $s['fulfillment'])): ?>
                 <button type="button" class="btn-outline small" onclick='openRate("rate_buyer", <?php echo (int) $s['id']; ?>, <?php echo json_encode('Rate the buyer: ' . $s['buyer_name'], JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>Rate buyer</button>
                 <?php endif; ?>
-                <?php if ($next && $next[1] && $s['dispute_status'] !== 'open'): ?>
+                <?php if ($next && $next[1] && $s['dispute_status'] !== 'open' && $s['return_status'] !== 'requested'): ?>
                 <form method="post">
                   <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
                   <input type="hidden" name="action" value="fulfill" />
@@ -940,6 +1016,47 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
           </div>
           <button type="submit" class="btn-primary inline">Save changes</button>
         </form>
+
+        <!-- ID verification: needed to rent; an admin checks it in User Management › ID Verification -->
+        <div class="card settings-card id-card" id="verify">
+          <div class="id-card-head">
+            <span class="form-label">ID verification</span>
+            <?php if ($idVerified): ?><span class="status-badge live">Verified</span>
+            <?php elseif ($user['id_status'] === 'pending'): ?><span class="status-badge pending">Under review</span>
+            <?php elseif ($user['id_status'] === 'rejected'): ?><span class="status-badge flagged">Not approved</span>
+            <?php else: ?><span class="status-badge">Not verified</span><?php endif; ?>
+          </div>
+          <?php if ($idVerified): ?>
+          <p class="field-hint">Your ID is verified, so you can rent items. Only admins can see your ID photos.</p>
+          <?php elseif ($user['id_status'] === 'pending'): ?>
+          <p class="field-hint">Your <?php echo $e($user['id_type']); ?> was sent <?php echo $user['id_submitted_at'] ? 'on ' . date('M j, Y', strtotime($user['id_submitted_at'])) : ''; ?>. An admin will check it soon; you'll get a notification.</p>
+          <?php else: ?>
+          <p class="field-hint">Renting needs a verified ID, so owners know who has their item. Upload a clear photo of a valid ID and a selfie holding it. Only admins can see them.</p>
+          <?php if ($user['id_status'] === 'rejected'): ?><p class="field-error">Not approved: <?php echo $e($user['id_note']); ?> Please upload new photos.</p><?php endif; ?>
+          <form method="post" action="account.php?tab=profile" enctype="multipart/form-data" class="form-stack id-form" novalidate>
+            <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
+            <input type="hidden" name="action" value="submit_id" />
+            <div class="form-field">
+              <label class="form-label" for="id_type">Type of ID</label>
+              <select id="id_type" name="id_type" class="text-input" required>
+                <option value="">Choose your ID…</option>
+                <?php foreach (SF_RENTER_ID_TYPES as $idType): ?><option<?php echo ($_POST['id_type'] ?? '') === $idType ? ' selected' : ''; ?>><?php echo $e($idType); ?></option><?php endforeach; ?>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label" for="id_front">Photo of the front of your ID</label>
+              <input type="file" id="id_front" name="id_front" class="text-input file-input" accept="image/jpeg,image/png,image/webp" required />
+              <span class="field-hint">JPG, PNG or WebP, up to 5 MB. Your name and photo must be readable.</span>
+            </div>
+            <div class="form-field">
+              <label class="form-label" for="id_selfie">Selfie holding your ID</label>
+              <input type="file" id="id_selfie" name="id_selfie" class="text-input file-input" accept="image/jpeg,image/png,image/webp" required />
+              <span class="field-hint">Hold the ID next to your face so both are clear.</span>
+            </div>
+            <button type="submit" class="btn-primary inline">Send for review</button>
+          </form>
+          <?php endif; ?>
+        </div>
         <?php endif; ?>
       </section>
     </div>
@@ -989,6 +1106,31 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
       <div class="wizard-actions">
         <button type="button" class="btn-outline" onclick="document.getElementById('disputeModal').close()">Cancel</button>
         <button type="submit" class="btn-primary">Send report</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Rentals: ask the owner for a return / refund (a declined request goes to an admin) -->
+  <dialog class="rate-modal" id="returnModal" aria-labelledby="returnTitle">
+    <form method="post" action="account.php?tab=buyer" enctype="multipart/form-data" id="returnForm" novalidate>
+      <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
+      <input type="hidden" name="action" value="request_return" />
+      <input type="hidden" name="item" id="returnItem" />
+      <h2 id="returnTitle">Request a return / refund</h2>
+      <p class="field-hint">The owner can accept and refund you, or decline. If they decline, an admin reviews it and decides.</p>
+      <label class="form-label" for="returnReason">Reason</label>
+      <select id="returnReason" name="reason" class="text-input">
+        <option value="">Choose a reason…</option>
+        <?php foreach (SF_RETURN_REASONS as $reason): ?><option><?php echo $e($reason); ?></option><?php endforeach; ?>
+      </select>
+      <label class="form-label" for="returnDetails">Details</label>
+      <textarea id="returnDetails" name="details" class="text-input" maxlength="1000" placeholder="What happened? When did you notice it, and what's wrong with the item?"></textarea>
+      <label class="form-label" for="returnPhotos">Photos <span class="optional">(optional, up to <?php echo SF_RETURN_PHOTOS; ?>)</span></label>
+      <input type="file" id="returnPhotos" name="photos[]" class="text-input file-input" accept="image/jpeg,image/png,image/webp" multiple />
+      <p class="field-error" id="returnError"></p>
+      <div class="wizard-actions">
+        <button type="button" class="btn-outline" onclick="document.getElementById('returnModal').close()">Cancel</button>
+        <button type="submit" class="btn-primary">Send request</button>
       </div>
     </form>
   </dialog>
@@ -1064,6 +1206,24 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
       if (error) { e.preventDefault(); document.getElementById('disputeError').textContent = error; }
     });
     document.getElementById('disputeModal').addEventListener('click', e => { if (e.target.id === 'disputeModal') e.target.close(); });
+
+    // Rentals: return / refund request
+    function openReturn(item, title) {
+      document.getElementById('returnForm').reset();
+      document.getElementById('returnItem').value = item;
+      document.getElementById('returnTitle').textContent = 'Return / refund: ' + title;
+      document.getElementById('returnError').textContent = '';
+      document.getElementById('returnModal').showModal();
+    }
+    document.getElementById('returnForm').addEventListener('submit', e => {
+      const photos = document.getElementById('returnPhotos').files;
+      const error = !document.getElementById('returnReason').value ? 'Please choose a reason.'
+        : document.getElementById('returnDetails').value.trim().length < 10 ? 'Please describe what happened (at least 10 characters).'
+        : photos.length > <?php echo SF_RETURN_PHOTOS; ?> ? 'You can add up to <?php echo SF_RETURN_PHOTOS; ?> photos.'
+        : [...photos].some(f => f.size > 5 * 1024 * 1024) ? 'Each photo can be up to 5 MB.' : '';
+      if (error) { e.preventDefault(); document.getElementById('returnError').textContent = error; }
+    });
+    document.getElementById('returnModal').addEventListener('click', e => { if (e.target.id === 'returnModal') e.target.close(); });
 
     // Preferences: save each change right away
     (function () {

@@ -3,7 +3,7 @@
  * Report Handler (AJAX, JSON) — used by js/report.js
  *
  * Actions:
- *   - report:  { type: 'listing' | 'user', id, reason, details }   file a report for the admins
+ *   - report:  { type: 'listing' | 'user' | 'comment', id, reason, details }   file a report for the admins
  */
 
 session_start();

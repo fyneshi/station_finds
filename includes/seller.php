@@ -64,7 +64,8 @@ function sf_status_class($type, $status) {
 // ── Profiles ────────────────────────────────────────────────────
 function sf_account_user($conn, $userId) {
     $stmt = $conn->prepare("SELECT id, username, full_name, email, password, role, notify_messages, notify_orders,
-                                   notify_push, show_online, language, avatar, bio, created_at
+                                   notify_push, show_online, language, avatar, bio, created_at,
+                                   id_status, id_type, id_front, id_selfie, id_note, id_submitted_at
                             FROM users WHERE id = ?");
     $stmt->bind_param("i", $userId);
     $stmt->execute();
@@ -258,6 +259,7 @@ function sf_listing_photos(array $listing) {
 function sf_seller_sales($conn, $sellerId) {
     $stmt = $conn->prepare("SELECT oi.id, oi.item_key, oi.item_type, oi.title, oi.units, oi.quantity, oi.line_total,
                                    oi.fulfillment, oi.dispute_status, oi.dispute_outcome, oi.dispute_reason,
+                                   oi.return_status, oi.return_reason, oi.return_details, oi.return_photos, oi.return_response,
                                    o.order_no, o.user_id AS buyer_id, o.full_name AS buyer_name,
                                    UNIX_TIMESTAMP(o.created_at) AS ts
                             FROM order_items oi
@@ -274,7 +276,7 @@ function sf_seller_sales($conn, $sellerId) {
 
 // Move one sold item to its next status and tell the buyer. Returns the new status or null.
 function sf_advance_fulfillment($conn, $sellerId, $orderItemId, $sellerName) {
-    $stmt = $conn->prepare("SELECT oi.id, oi.item_type, oi.title, oi.fulfillment, oi.dispute_status, o.order_no, o.user_id AS buyer_id
+    $stmt = $conn->prepare("SELECT oi.id, oi.item_type, oi.title, oi.fulfillment, oi.dispute_status, oi.return_status, o.order_no, o.user_id AS buyer_id
                             FROM order_items oi
                             JOIN orders o   ON o.id = oi.order_id
                             JOIN listings l ON oi.item_key = CONCAT('listing-', l.id)
@@ -283,7 +285,8 @@ function sf_advance_fulfillment($conn, $sellerId, $orderItemId, $sellerName) {
     $stmt->execute();
     $item = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    if (!$item || $item['dispute_status'] === 'open') return null;   // wait for an admin to settle a dispute
+    // Wait for an admin to settle a dispute, or for the owner to answer a return / refund request
+    if (!$item || $item['dispute_status'] === 'open' || $item['return_status'] === 'requested') return null;
 
     $next = SF_FULFILLMENT[$item['item_type']][$item['fulfillment']][1] ?? null;
     if ($next === null) return null;
@@ -376,6 +379,7 @@ function sf_cancel_order_item($conn, $buyerId, $orderItemId, $reason) {
 function sf_buyer_items($conn, $userId) {
     $stmt = $conn->prepare("SELECT oi.id, oi.item_key, oi.item_type, oi.title, oi.seller, oi.units, oi.quantity, oi.line_total,
                                    oi.fulfillment, oi.dispute_status, oi.dispute_outcome, oi.dispute_reason, oi.dispute_note, oi.cancel_reason,
+                                   oi.return_status, oi.return_reason, oi.return_response,
                                    o.order_no, UNIX_TIMESTAMP(o.created_at) AS ts
                             FROM order_items oi JOIN orders o ON o.id = oi.order_id
                             WHERE o.user_id = ?
@@ -466,7 +470,7 @@ function sf_open_dispute($conn, $buyerId, $orderItemId, $reason, $details) {
     if (mb_strlen($details) < 10) return 'Please describe the problem so an admin can help (at least 10 characters).';
     if (mb_strlen($details) > 1000) return 'Please keep the details under 1,000 characters.';
 
-    $stmt = $conn->prepare("SELECT oi.id, oi.title, oi.fulfillment, oi.dispute_status, o.order_no, l.seller_id
+    $stmt = $conn->prepare("SELECT oi.id, oi.title, oi.fulfillment, oi.dispute_status, oi.return_status, o.order_no, l.seller_id
                             FROM order_items oi JOIN orders o ON o.id = oi.order_id
                             LEFT JOIN listings l ON oi.item_key = CONCAT('listing-', l.id)
                             WHERE oi.id = ? AND o.user_id = ?");
@@ -476,6 +480,7 @@ function sf_open_dispute($conn, $buyerId, $orderItemId, $reason, $details) {
     $stmt->close();
     if (!$item) return 'That order could not be found.';
     if ($item['dispute_status'] !== '') return 'You\'ve already reported a problem with this item.';
+    if ($item['return_status'] !== '') return 'You already asked for a return or refund on this rental.';
     if ($item['fulfillment'] === 'refunded') return 'This item was already refunded.';
     if ($item['fulfillment'] === 'cancelled') return 'This item was cancelled.';
 
@@ -521,6 +526,173 @@ function sf_resolve_dispute($conn, $orderItemId, $outcome, $note) {
         sf_notify($conn, (int) $item['buyer_id'], 'order', 'Dispute closed', 'We reviewed your report about ' . $what . ' and closed it without a refund. Note from admin: ' . $note, 'account.php');
         if ($item['seller_id']) sf_notify($conn, (int) $item['seller_id'], 'order', 'Dispute settled in your favour', $what . ' stays a sale. You can update the order again. Note from admin: ' . $note, 'account.php?tab=seller');
     }
+    return null;
+}
+
+// ── Rentals: return / refund requests (account.php) ─────────────
+// The renter asks once the item is in their hands (active) or back with the owner (returned).
+// The owner accepts (the renter is refunded) or declines with a reason; a declined request goes
+// to an admin as a dispute (admin_transactions.php), who refunds the renter or pays the owner.
+const SF_RETURN_REASONS = ['Item damaged or broken', 'Not as described', 'Missing parts or accessories', 'Stopped working', 'Returning it early', 'Other'];
+const SF_RETURN_PHOTOS  = 3;   // photos a renter can add to a request
+
+// The renter's request. $files: from sf_uploaded_files('photos'). Returns null or an error message.
+function sf_request_return($conn, $renterId, $orderItemId, $reason, $details, array $files) {
+    if (!in_array($reason, SF_RETURN_REASONS, true)) return 'Please choose a reason.';
+    $details = trim(str_replace("\r\n", "\n", (string) $details));
+    if (mb_strlen($details) < 10) return 'Please describe what happened (at least 10 characters).';
+    if (mb_strlen($details) > 1000) return 'Please keep the details under 1,000 characters.';
+    if (count($files) > SF_RETURN_PHOTOS) return 'You can add up to ' . SF_RETURN_PHOTOS . ' photos.';
+
+    $stmt = $conn->prepare("SELECT oi.id, oi.title, oi.item_type, oi.fulfillment, oi.dispute_status, oi.return_status, o.order_no, l.seller_id
+                            FROM order_items oi JOIN orders o ON o.id = oi.order_id
+                            LEFT JOIN listings l ON oi.item_key = CONCAT('listing-', l.id)
+                            WHERE oi.id = ? AND o.user_id = ?");
+    $stmt->bind_param("ii", $orderItemId, $renterId);
+    $stmt->execute();
+    $item = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$item || $item['item_type'] !== 'rentals') return 'That rental could not be found.';
+    if ($item['return_status'] !== '') return 'You already asked for a return or refund on this rental.';
+    if ($item['dispute_status'] !== '') return 'You already reported a problem with this rental. An admin is handling it.';
+    if (!in_array($item['fulfillment'], ['active', 'returned'], true)) {
+        return $item['fulfillment'] === 'pending' ? 'You haven\'t picked this up yet. Cancel the rental instead.' : 'This rental is already closed.';
+    }
+    if (!$item['seller_id']) return 'The owner\'s listing was removed. Use Report a problem so an admin can help.';
+
+    // Check every photo first, then save them
+    $checked = [];
+    foreach ($files as $file) {
+        [$ext, $error] = sf_check_listing_photo($file);
+        if ($error) return $error;
+        $checked[] = [$file, $ext];
+    }
+    $photos = [];
+    foreach ($checked as [$file, $ext]) {
+        $path = sf_save_listing_photo($file, $ext);
+        if (!$path) {
+            foreach ($photos as $p) sf_delete_listing_photo($p);
+            return 'A photo could not be saved. Please try again.';
+        }
+        $photos[] = $path;
+    }
+
+    $photosJson = json_encode($photos);
+    $stmt = $conn->prepare("UPDATE order_items SET return_status = 'requested', return_reason = ?, return_details = ?, return_photos = ?,
+                                   return_requested_at = NOW() WHERE id = ? AND return_status = ''");
+    $stmt->bind_param("sssi", $reason, $details, $photosJson, $item['id']);
+    $stmt->execute();
+    $stmt->close();
+    sf_notify($conn, (int) $item['seller_id'], 'order', 'Return / refund requested: ' . $item['title'],
+        'The renter of order #' . $item['order_no'] . ' asked for a return / refund: ' . $reason . '. Accept or decline it from your Seller Dashboard.', 'account.php?tab=seller');
+    return null;
+}
+
+// The owner answers. Accept: the renter is refunded. Decline: needs a reason, and an admin decides.
+// Returns null or an error message.
+function sf_answer_return($conn, $ownerId, $orderItemId, $accept, $note) {
+    $note = mb_substr(trim(preg_replace('/\s+/', ' ', (string) $note)), 0, 255);
+    if (!$accept && mb_strlen($note) < 5) return 'Tell the renter why you\'re declining (at least 5 characters).';
+
+    $stmt = $conn->prepare("SELECT oi.id, oi.title, oi.line_total, oi.return_status, oi.return_reason, oi.return_details,
+                                   o.order_no, o.user_id AS renter_id
+                            FROM order_items oi JOIN orders o ON o.id = oi.order_id
+                            JOIN listings l ON oi.item_key = CONCAT('listing-', l.id)
+                            WHERE oi.id = ? AND l.seller_id = ?");
+    $stmt->bind_param("ii", $orderItemId, $ownerId);
+    $stmt->execute();
+    $item = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$item || $item['return_status'] !== 'requested') return 'That request was already answered.';
+
+    $what = '"' . $item['title'] . '" (order #' . $item['order_no'] . ')';
+    if ($accept) {
+        // Refunded: the rental stops counting toward the owner's earnings (like a refunded dispute)
+        $stmt = $conn->prepare("UPDATE order_items SET return_status = 'accepted', return_response = ?, fulfillment = 'refunded'
+                                WHERE id = ? AND return_status = 'requested'");
+        $stmt->bind_param("si", $note, $item['id']);
+        $stmt->execute();
+        $stmt->close();
+        sf_notify($conn, (int) $item['renter_id'], 'order', 'Refund approved',
+            'The owner accepted your return / refund request for ' . $what . '. ' . sf_peso($item['line_total']) . ' will be refunded the way you paid within 5–7 business days.'
+            . ' If you still have the item, return it to the owner.' . ($note !== '' ? ' Note from the owner: ' . $note : ''), 'account.php');
+        return null;
+    }
+
+    // Declined: it becomes a dispute for an admin, with the renter's reason and details
+    $reason = mb_substr('Return declined: ' . $item['return_reason'], 0, 60);
+    $stmt = $conn->prepare("UPDATE order_items SET return_status = 'declined', return_response = ?,
+                                   dispute_status = 'open', dispute_reason = ?, dispute_details = ?, disputed_at = NOW()
+                            WHERE id = ? AND return_status = 'requested'");
+    $stmt->bind_param("sssi", $note, $reason, $item['return_details'], $item['id']);
+    $stmt->execute();
+    $stmt->close();
+    sf_notify($conn, (int) $item['renter_id'], 'order', 'Return / refund declined by the owner',
+        'The owner declined your request for ' . $what . ': ' . $note . ' An admin will now review it and decide.', 'account.php');
+    return null;
+}
+
+// Photos added to a return request (a list of paths under uploads/listings)
+function sf_return_photos($json) {
+    $list = json_decode((string) $json, true);
+    return is_array($list) ? array_values(array_filter($list, 'is_string')) : [];
+}
+
+// ── ID verification for renting (Account › Edit Profile → admin_users.php?tab=ids) ──
+// A renter uploads a photo of a valid ID and a selfie holding it, once. An admin approves it.
+const SF_RENTER_ID_TYPES = ['School ID', 'PhilSys National ID', 'Driver\'s license', 'Passport', 'UMID', 'Postal ID', 'Other government ID'];
+
+// Saves an ID photo (no PDFs here: the admin compares the two photos). Returns [path, error].
+function sf_save_id_photo(array $file, $label) {
+    $info = @getimagesize($file['tmp_name']);
+    if ($file['error'] === UPLOAD_ERR_OK && (!$info || !in_array($info['mime'], ['image/jpeg', 'image/png', 'image/webp'], true))) {
+        return [null, $label . ': upload a JPG, PNG or WebP photo.'];
+    }
+    [$path, $error] = sf_save_id_document($file);
+    return [$path, $error ? $label . ': ' . $error : null];
+}
+
+// The renter sends (or re-sends after a rejection) their ID. Returns null or an error message.
+function sf_submit_renter_id($conn, array $user, $type, $front, $selfie) {
+    if ($user['id_status'] === 'verified') return 'Your ID is already verified.';
+    if ($user['id_status'] === 'pending') return 'Your ID is already being reviewed.';
+    if (!in_array($type, SF_RENTER_ID_TYPES, true)) return 'Please choose the type of ID.';
+    if (!$front || ($front['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) return 'Add a photo of the front of your ID.';
+    if (!$selfie || ($selfie['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) return 'Add a selfie of you holding your ID.';
+
+    [$frontPath, $error] = sf_save_id_photo($front, 'ID photo');
+    if ($error) return $error;
+    [$selfiePath, $error] = sf_save_id_photo($selfie, 'Selfie');
+    if ($error) {
+        sf_delete_id_document($frontPath);
+        return $error;
+    }
+    // A rejected ID's old photos aren't needed any more
+    sf_delete_id_document($user['id_front']);
+    sf_delete_id_document($user['id_selfie']);
+
+    $stmt = $conn->prepare("UPDATE users SET id_status = 'pending', id_type = ?, id_front = ?, id_selfie = ?, id_note = '',
+                                   id_submitted_at = NOW(), id_reviewed_at = NULL WHERE id = ?");
+    $stmt->bind_param("sssi", $type, $frontPath, $selfiePath, $user['id']);
+    $stmt->execute();
+    $stmt->close();
+    return null;
+}
+
+// An admin approves or rejects (with a reason the user sees). Returns null or an error message.
+function sf_review_renter_id($conn, $userId, $approve, $note) {
+    $note = mb_substr(trim(preg_replace('/\s+/', ' ', (string) $note)), 0, 255);
+    if (!$approve && $note === '') return 'Add a reason so the user knows what to fix.';
+    $status = $approve ? 'verified' : 'rejected';
+    $stmt = $conn->prepare("UPDATE users SET id_status = ?, id_note = ?, id_reviewed_at = NOW() WHERE id = ? AND id_status = 'pending'");
+    $stmt->bind_param("ssi", $status, $note, $userId);
+    $stmt->execute();
+    $changed = $stmt->affected_rows > 0;
+    $stmt->close();
+    if (!$changed) return 'That ID was already reviewed.';
+    sf_notify($conn, (int) $userId, 'security', $approve ? 'Your ID is verified' : 'Your ID wasn\'t approved',
+        $approve ? 'You can now rent items on Station Finds.' : 'Reason: ' . $note . ' Upload a new photo from Account › Edit Profile.',
+        $approve ? 'marketplace.php?tab=rentals' : 'account.php?tab=profile#verify');
     return null;
 }
 

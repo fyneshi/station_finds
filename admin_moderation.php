@@ -15,7 +15,7 @@ require_once __DIR__ . '/includes/reports.php';
 require_once __DIR__ . '/includes/admin_layout.php';
 sf_admin_require($conn, 'moderation');
 
-$tabs = ['all' => 'All', 'listing' => 'Listings', 'user' => 'Users'];
+$tabs = ['all' => 'All', 'listing' => 'Listings', 'user' => 'Users', 'comment' => 'Comments'];
 $tab  = isset($tabs[$_GET['tab'] ?? '']) ? $_GET['tab'] : 'all';
 
 // Report status => [label, chip style]
@@ -28,6 +28,7 @@ $statuses = [
 $outcomes = [
     'listing_flagged' => 'Listing flagged',
     'user_suspended'  => 'User suspended',
+    'comment_removed' => 'Comment removed',
     'dismissed'       => 'No action needed',
     'resolved'        => 'Resolved by an admin',
 ];
@@ -47,7 +48,7 @@ function close_report($conn, array $report, $status, $outcome, $note) {
     $stmt->bind_param("sssi", $status, $outcome, $note, $report['id']);
     $stmt->execute();
     $stmt->close();
-    $about = $report['target_type'] === 'user' ? 'the user ' . $report['target_name'] : '"' . $report['target_name'] . '"';
+    $about = ['user' => 'the user ' . $report['target_name'], 'comment' => 'a comment'][$report['target_type']] ?? '"' . $report['target_name'] . '"';
     sf_notify($conn, (int) $report['reporter_id'], 'info', 'Your report was reviewed',
         $status === 'resolved'
             ? 'Thanks for reporting ' . $about . '. Our team reviewed it and took action.'
@@ -70,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!in_array($report['status'], ['open', 'escalated'], true)) back($tab, 'err', 'That report is already closed.');
 
         $note = mb_substr(trim(preg_replace('/\s+/', ' ', (string) ($_POST['note'] ?? ''))), 0, 255);
-        $name = $report['target_type'] === 'user' ? $report['target_name'] : '"' . $report['target_name'] . '"';
+        $name = ['user' => $report['target_name'], 'comment' => 'the comment'][$report['target_type']] ?? '"' . $report['target_name'] . '"';
 
         if ($action === 'escalate') {
             if ($report['status'] === 'escalated') back($tab, 'err', 'That report is already escalated.');
@@ -104,6 +105,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 sf_flag_listing($conn, $listing, $note);
                 $outcome = 'listing_flagged';
                 $done    = $name . ' was flagged and hidden from the marketplace.';
+            } elseif ($report['target_type'] === 'comment') {
+                // Removes the comment (a question takes its replies with it) and tells the person who wrote it
+                $stmt = $conn->prepare("SELECT c.*, l.title FROM listing_comments c JOIN listings l ON l.id = c.listing_id WHERE c.id = ?");
+                $stmt->bind_param("i", $report['target_id']);
+                $stmt->execute();
+                $comment = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if (!$comment) back($tab, 'err', 'That comment was already removed. Dismiss the report instead.');
+                $stmt = $conn->prepare("DELETE FROM listing_comments WHERE id = ? OR parent_id = ?");
+                $stmt->bind_param("ii", $comment['id'], $comment['id']);
+                $stmt->execute();
+                $stmt->close();
+                sf_notify($conn, (int) $comment['user_id'], 'info', 'Your comment was removed',
+                    'An admin removed your comment on "' . $comment['title'] . '" for breaking the community rules'
+                    . ($note !== '' ? ': ' . $note : '.'), 'policies.php');
+                $outcome = 'comment_removed';
+                $done    = 'The comment was removed and its author was told.';
             } else {
                 $stmt = $conn->prepare("UPDATE users SET status = 'suspended' WHERE id = ? AND role <> 'admin'");
                 $stmt->bind_param("i", $report['target_id']);
@@ -126,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $related = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             $stmt->close();
             foreach ($related as $r) close_report($conn, $r, 'resolved', $outcome, $note);
-            sf_admin_log($conn, 'report', $outcome === 'user_suspended' ? 'Resolved report: suspended user' : 'Resolved report: flagged listing',
+            sf_admin_log($conn, 'report', ['user_suspended' => 'Resolved report: suspended user', 'comment_removed' => 'Resolved report: removed comment'][$outcome] ?? 'Resolved report: flagged listing',
                 $report['target_name'], 'resolved', $outcome === 'user_suspended');
             back($tab, 'ok', $done . ' ' . count($related) . ' report' . (count($related) === 1 ? '' : 's') . ' resolved.');
         }
@@ -139,6 +157,7 @@ $reports = $conn->query("SELECT r.*, UNIX_TIMESTAMP(r.created_at) AS created_ts,
            l.status AS listing_status, l.price AS listing_price, l.unit AS listing_unit, l.description AS listing_desc,
            COALESCE(sp.store_name, ls.username) AS listing_seller,
            t.status AS user_status, t.email AS user_email,
+           cm.body AS comment_body, cl.id AS comment_listing_id, cl.type AS comment_listing_type, cl.title AS comment_listing,
            (SELECT COUNT(*) FROM reports o WHERE o.target_type = r.target_type AND o.target_id = r.target_id) AS times_reported
     FROM reports r
     JOIN users rep ON rep.id = r.reporter_id
@@ -146,6 +165,8 @@ $reports = $conn->query("SELECT r.*, UNIX_TIMESTAMP(r.created_at) AS created_ts,
     LEFT JOIN users ls ON ls.id = l.seller_id
     LEFT JOIN seller_profiles sp ON sp.user_id = l.seller_id
     LEFT JOIN users t ON r.target_type = 'user' AND t.id = r.target_id
+    LEFT JOIN listing_comments cm ON r.target_type = 'comment' AND cm.id = r.target_id
+    LEFT JOIN listings cl ON cl.id = cm.listing_id
     ORDER BY FIELD(r.status, 'escalated', 'open', 'resolved', 'dismissed'), r.created_at DESC")->fetch_all(MYSQLI_ASSOC);
 
 $weekStart     = strtotime('monday this week');
@@ -161,7 +182,7 @@ $stats = [
 $weekDiff = $stats['week'] - $stats['last_week'];
 
 $tabCounts = ['all' => count($reports)];
-foreach (['listing', 'user'] as $t) $tabCounts[$t] = count(array_filter($reports, fn($r) => $r['target_type'] === $t));
+foreach (['listing', 'user', 'comment'] as $t) $tabCounts[$t] = count(array_filter($reports, fn($r) => $r['target_type'] === $t));
 $shown = $tab === 'all' ? $reports : array_filter($reports, fn($r) => $r['target_type'] === $tab);
 
 $e    = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -171,6 +192,7 @@ $rowIcons = [
     'listing'   => '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
     'user'      => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
     'escalated' => '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+    'comment'   => '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
     'closed'    => '<rect x="3" y="3" width="18" height="18" rx="3"/><polyline points="8 12 11 15 16 9"/>',
 ];
 $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidden)', 'flagged' => 'Flagged (hidden)', 'pending' => 'Waiting for review (hidden)'];
@@ -184,7 +206,7 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css?v=23" />
+  <link rel="stylesheet" href="css/admin.css?v=25" />
   <link rel="stylesheet" href="css/admin-shell.css?v=5" />
 </head>
 <body>
@@ -194,7 +216,7 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
       <header class="dashboard-header">
         <div class="header-title-group">
           <h1>Content Moderation</h1>
-          <p>Review reported listings and users.</p>
+          <p>Review reported listings, users and comments.</p>
         </div>
         <div class="header-actions">
           <button type="button" class="filter-button" id="filterToggle" aria-expanded="false" aria-controls="reportFilters"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8v8l-4-2v-6Z"/></svg>Filters</button>
@@ -252,19 +274,23 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
                   if ($r['target_type'] === 'listing') {
                       $now = $r['listing_status'] === null ? 'Listing deleted'
                            : ($listingStates[$r['listing_status']] ?? ucfirst($r['listing_status'])) . ' · by ' . $r['listing_seller'];
+                  } elseif ($r['target_type'] === 'comment') {
+                      $now = $r['comment_body'] === null ? 'Comment removed' : 'On "' . $r['comment_listing'] . '"';
                   } else {
                       $now = $r['user_status'] === null ? 'Account deleted' : ($r['user_status'] === 'suspended' ? 'Suspended' : 'Active') . ' · ' . $r['user_email'];
                   }
                   $info = [
                       'no' => 'RPT-' . str_pad((string) $r['id'], 4, '0', STR_PAD_LEFT),
-                      'desc' => (string) ($r['listing_desc'] ?? ''),
+                      'desc' => (string) ($r['target_type'] === 'comment' ? ($r['comment_body'] ?? '') : ($r['listing_desc'] ?? '')),
+                      'where' => $r['comment_listing'] ?? '',
+                      'link' => $r['comment_listing_id'] ? ['products' => 'product', 'rentals' => 'rental', 'services' => 'service'][$r['comment_listing_type']] . '_detail.php?id=listing-' . $r['comment_listing_id'] . '#comment-' . $r['target_id'] : '',
                       'price' => $r['listing_price'] !== null ? '₱' . number_format((float) $r['listing_price'], 2) . ($r['listing_unit'] && $r['listing_unit'] !== 'item' ? ' / ' . $r['listing_unit'] : '') : '',
                       'id' => (int) $r['id'], 'type' => $r['target_type'], 'name' => $r['target_name'], 'reason' => $r['reason'],
                       'details' => $r['details'], 'reporter' => $r['reporter'], 'date' => date('M j, Y g:i A', $r['created_ts']),
                       'status' => $r['status'], 'statusLabel' => $statusLabel, 'now' => $now, 'times' => (int) $r['times_reported'],
                       'note' => $r['admin_note'], 'outcome' => $outcomes[$r['outcome']] ?? '',
                       'resolved' => $r['resolved_ts'] ? date('M j, Y', $r['resolved_ts']) : '',
-                      'gone' => $r['target_type'] === 'listing' ? $r['listing_status'] === null : $r['user_status'] === null,
+                      'gone' => ['listing' => $r['listing_status'] === null, 'comment' => $r['comment_body'] === null][$r['target_type']] ?? $r['user_status'] === null,
                   ];
                 ?>
                 <tr data-search="<?php echo $e(mb_strtolower($r['target_name'] . ' ' . $r['reason'] . ' ' . $r['reporter'])); ?>" data-status="<?php echo $e($r['status']); ?>">
@@ -284,7 +310,7 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
               </tbody>
             </table>
           </div>
-          <p class="empty-state" id="emptyReports"<?php echo $shown ? ' hidden' : ''; ?>><?php echo $shown ? 'No reports match your search.' : 'No reports yet. Students can report listings from a listing page and users from Messages.'; ?></p>
+          <p class="empty-state" id="emptyReports"<?php echo $shown ? ' hidden' : ''; ?>><?php echo $shown ? 'No reports match your search.' : 'No reports yet. Students can report listings and comments from a listing page and users from Messages.'; ?></p>
         </section>
       </div>
 
@@ -304,8 +330,9 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
     </dl>
 
     <div class="review-preview" id="rPreview">
-      <p class="review-preview-label">Listing description preview <span id="rPrice"></span></p>
+      <p class="review-preview-label"><span id="rPreviewLabel">Listing description preview</span> <span id="rPrice"></span></p>
       <p id="rDesc"></p>
+      <p class="review-preview-where" id="rWhere" hidden>On <a id="rWhereLink" target="_blank" rel="noopener"></a></p>
     </div>
     <div class="review-preview" id="rDetailsBox">
       <p class="review-preview-label">What the reporter said</p>
@@ -346,8 +373,9 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
       const show = (id, on) => { document.getElementById(id).hidden = !on; };
       const closed = r.status === 'resolved' || r.status === 'dismissed';
       const listing = r.type === 'listing';
+      const comment = r.type === 'comment';
       set('rNo', '#' + r.no);
-      set('rTitle', r.name + (listing ? '' : ' (user)'));
+      set('rTitle', r.name + (r.type === 'user' ? ' (user)' : ''));
       set('rReason', r.reason);
       set('rReporter', r.reporter);
       set('rDate', r.date);
@@ -356,9 +384,13 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
       status.className = 'review-status ' + r.status;
 
       // What was reported, what the reporter said, and any earlier note
+      set('rPreviewLabel', comment ? 'The reported comment' : 'Listing description preview');
       set('rDesc', r.desc ? '“' + r.desc + '”' : 'This listing has no description.');
       set('rPrice', r.price ? '· ' + r.price : '');
-      show('rPreview', listing && !r.gone);
+      show('rPreview', (listing || comment) && !r.gone);
+      set('rWhereLink', r.where);
+      document.getElementById('rWhereLink').href = r.link;
+      show('rWhere', comment && !r.gone);
       set('rDetails', r.details);
       show('rDetailsBox', !!r.details);
       set('rNoteShown', r.note);
@@ -369,8 +401,9 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
       note.value = '';
       note.classList.remove('has-error');
       set('rNoteHint', listing ? 'Required to flag the item: the seller sees it so they know what to fix. The reporter is told the outcome, not your note.'
+                     : comment ? 'Optional: if you remove the comment, its author sees this as the reason. The reporter is told the outcome, not your note.'
                                : 'Kept for the admin team. The reporter is told the outcome, not your note.');
-      document.getElementById('rAct').textContent = listing ? 'Flag Item' : 'Suspend user';
+      document.getElementById('rAct').textContent = listing ? 'Flag Item' : comment ? 'Remove comment' : 'Suspend user';
       show('rAct', !r.gone);
       show('rEscalate', r.status === 'open');
       show('rForm', !closed);
@@ -385,6 +418,8 @@ $listingStates = ['active' => 'Live in the marketplace', 'draft' => 'Draft (hidd
         e.preventDefault();
         note.classList.add('has-error');
         note.focus();
+      } else if (action === 'take_action' && document.getElementById('rAct').textContent === 'Remove comment') {
+        if (!confirm('Remove this comment? If it\'s a question, its replies are removed too.')) e.preventDefault();
       } else if (action === 'take_action' && !listing && !confirm('Suspend this user? They are logged out and their listings are hidden.')) {
         e.preventDefault();
       }

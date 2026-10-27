@@ -48,7 +48,7 @@ $csrf     = sf_csrf_token();
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/detail.css?v=14" />
+  <link rel="stylesheet" href="css/detail.css?v=15" />
   <link rel="stylesheet" href="css/header.css?v=1" />
   <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
@@ -265,7 +265,7 @@ $csrf     = sf_csrf_token();
 
   <script src="js/cart.js?v=6"></script>
   <script src="js/inbox.js?v=4"></script>
-  <script src="js/report.js?v=2"></script>
+  <script src="js/report.js?v=3"></script>
   <script>
     const ITEM_ID = <?php echo json_encode($item['id']); ?>;
     const ORDER_LIMIT = <?php echo SF_MAX_QTY; ?>;      // most of one item per order

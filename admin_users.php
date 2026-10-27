@@ -15,7 +15,7 @@ require_once __DIR__ . '/includes/admin_layout.php';
 sf_admin_require($conn, 'users');
 
 $adminId = (int) $_SESSION['user_id'];
-$tabs    = ['all' => 'All', 'buyers' => 'Buyers', 'sellers' => 'Sellers', 'suspended' => 'Suspended'];
+$tabs    = ['all' => 'All', 'buyers' => 'Buyers', 'sellers' => 'Sellers', 'suspended' => 'Suspended', 'ids' => 'ID Verification'];
 $tab     = isset($tabs[$_GET['tab'] ?? '']) ? $_GET['tab'] : 'all';
 
 $flash = $_SESSION['flash'] ?? null;
@@ -56,6 +56,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if (!sf_check_csrf()) {
         $flash = ['err', 'Your session expired. Please try again.'];
+
+    } elseif ($action === 'review_id') {
+        // ID verification (needed to rent): approve, or reject with a reason the user sees
+        $target  = target_user($conn, 'ids', (int) ($_POST['id'] ?? 0));
+        $approve = ($_POST['decision'] ?? '') === 'approve';
+        $error   = sf_review_renter_id($conn, (int) $target['id'], $approve, (string) ($_POST['note'] ?? ''));
+        if ($error) back('ids', 'err', $error);
+        sf_admin_log($conn, 'user', $approve ? 'Verified renter ID' : 'Rejected renter ID', $target['username'], $approve ? 'verified' : 'rejected');
+        back('ids', 'ok', $target['username'] . ($approve ? '\'s ID is verified. They can rent now.' : '\'s ID was rejected. They\'ve been told why.'));
 
     } elseif ($action === 'edit_user') {
         $target = target_user($conn, $tab, (int) ($_POST['id'] ?? 0));
@@ -244,6 +253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // ── Everyone, with what they do on the marketplace ──────────────
 $users = $conn->query("SELECT u.id, u.username, u.full_name, u.email, u.role, u.status, UNIX_TIMESTAMP(u.created_at) AS joined,
+           u.id_status, u.id_type, u.id_note, UNIX_TIMESTAMP(u.id_submitted_at) AS id_submitted, UNIX_TIMESTAMP(u.id_reviewed_at) AS id_reviewed,
            UNIX_TIMESTAMP(u.last_login_at) AS last_login, u.last_login_ip,
            s.store_name,
            (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id) AS orders,
@@ -281,15 +291,20 @@ $tabCounts = [
     'buyers'    => count(array_filter($members, fn($u) => $u['store_name'] === null)),
     'sellers'   => count(array_filter($members, fn($u) => $u['store_name'] !== null)),
     'suspended' => $stats['suspended'],
+    'ids'       => count(array_filter($members, fn($u) => $u['id_status'] === 'pending')),
 ];
 $shown = array_filter($users, function ($u) use ($tab) {
     switch ($tab) {
         case 'buyers':    return $u['role'] !== 'admin' && $u['store_name'] === null;
         case 'sellers':   return $u['role'] !== 'admin' && $u['store_name'] !== null;
         case 'suspended': return $u['status'] === 'suspended';
+        case 'ids':       return $u['id_status'] !== '';
         default:          return true;
     }
 });
+// ID Verification: waiting first, then the most recent
+if ($tab === 'ids') usort($shown, fn($a, $b) => [$b['id_status'] === 'pending', $b['id_submitted']] <=> [$a['id_status'] === 'pending', $a['id_submitted']]);
+$idChips = ['pending' => ['Pending', 'suspended'], 'verified' => ['Verified', 'active'], 'rejected' => ['Rejected', 'draft']];
 
 $e    = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $csrf = sf_csrf_token();
@@ -305,7 +320,7 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css?v=23" />
+  <link rel="stylesheet" href="css/admin.css?v=25" />
   <link rel="stylesheet" href="css/admin-shell.css?v=5" />
 </head>
 <body>
@@ -366,6 +381,42 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
           <?php endforeach; ?>
         </nav>
 
+        <?php if ($tab === 'ids'): ?>
+        <!-- ID Verification: renters upload a valid ID and a selfie (Account › Edit Profile); renting needs it approved -->
+        <section class="users-card">
+          <div class="table-scroll">
+            <table class="users-table">
+              <thead><tr><th>Name</th><th>ID type</th><th>Sent</th><th>Status</th><th class="col-action">Action</th></tr></thead>
+              <tbody id="usersBody">
+                <?php foreach ($shown as $u):
+                  $name = $u['full_name'] !== '' ? $u['full_name'] : $u['username'];
+                  [$chipLabel, $chip] = $idChips[$u['id_status']] ?? [ucfirst($u['id_status']), 'draft'];
+                  $idInfo = [
+                      'id' => (int) $u['id'], 'name' => $name, 'username' => $u['username'], 'email' => $u['email'], 'type' => $u['id_type'],
+                      'status' => $u['id_status'], 'statusLabel' => $chipLabel, 'note' => $u['id_note'],
+                      'sent' => $u['id_submitted'] ? date('M j, Y g:i A', $u['id_submitted']) : '',
+                      'reviewed' => $u['id_reviewed'] ? date('M j, Y', $u['id_reviewed']) : '',
+                  ];
+                ?>
+                <tr data-name="<?php echo $e(mb_strtolower($name . ' ' . $u['username'] . ' ' . $u['email'])); ?>" data-joined="<?php echo (int) $u['id_submitted']; ?>" data-sort-name="<?php echo $e(mb_strtolower($name)); ?>">
+                  <td>
+                    <div class="user-cell">
+                      <span class="user-avatar"><?php echo $e($initials($u)); ?></span>
+                      <span><strong><?php echo $e($name); ?></strong><span><?php echo $e($u['email']); ?></span></span>
+                    </div>
+                  </td>
+                  <td><?php echo $e($u['id_type']); ?></td>
+                  <td><?php echo $u['id_submitted'] ? date('M j, Y', $u['id_submitted']) : '—'; ?></td>
+                  <td><span class="status-chip <?php echo $chip; ?>"><?php echo $chipLabel; ?></span></td>
+                  <td class="col-action"><button type="button" class="manage-btn<?php echo $u['id_status'] === 'pending' ? '' : ' quiet'; ?>" onclick='openIdReview(<?php echo json_encode($idInfo, JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>Review</button></td>
+                </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+          <p class="empty-state" id="emptyUsers"<?php echo $shown ? ' hidden' : ''; ?>><?php echo $shown ? 'No users match your search.' : 'No IDs sent yet. Users upload one from Account › Edit Profile before they can rent.'; ?></p>
+        </section>
+        <?php else: ?>
         <section class="users-card">
           <div class="table-scroll">
             <table class="users-table">
@@ -413,7 +464,42 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
           </div>
           <p class="empty-state" id="emptyUsers"<?php echo $shown ? ' hidden' : ''; ?>><?php echo $shown ? 'No users match your search.' : 'No ' . strtolower($tabs[$tab]) . ' users.'; ?></p>
         </section>
+        <?php endif; ?>
       </div>
+
+  <!-- ==================== ID REVIEW MODAL ==================== -->
+  <dialog class="adm-modal wide review-modal" id="idModal" aria-labelledby="idHeading">
+    <div class="review-head">
+      <h2 id="idHeading">Review ID</h2>
+      <span class="review-no" id="idStatus"></span>
+      <button type="button" class="adm-modal-close" onclick="closeModal('idModal')" aria-label="Close">&times;</button>
+    </div>
+    <dl class="review-facts">
+      <div><dt>Name</dt><dd id="idName"></dd></div>
+      <div><dt>Username</dt><dd id="idUser"></dd></div>
+      <div><dt>ID type</dt><dd id="idType"></dd></div>
+      <div><dt>Sent</dt><dd id="idSent"></dd></div>
+    </dl>
+    <div class="id-photos">
+      <figure><a id="idFrontLink" target="_blank" rel="noopener"><img id="idFront" alt="Front of the ID" /></a><figcaption>Front of the ID</figcaption></figure>
+      <figure><a id="idSelfieLink" target="_blank" rel="noopener"><img id="idSelfie" alt="Selfie holding the ID" /></a><figcaption>Selfie holding the ID</figcaption></figure>
+    </div>
+    <p class="review-preview log" id="idDone" hidden></p>
+    <form method="post" id="idForm" novalidate>
+      <input type="hidden" name="csrf_token" value="<?php echo $e($csrf); ?>" />
+      <input type="hidden" name="action" value="review_id" />
+      <input type="hidden" name="id" id="idUserId" />
+      <div class="adm-field">
+        <label for="idNote">Reason (if rejecting)</label>
+        <textarea id="idNote" name="note" maxlength="255" rows="2" placeholder="e.g. The photo is blurry, or the name doesn't match the account."></textarea>
+        <span class="adm-field-hint">Check that the name is readable, the ID is valid, and the face in the selfie matches the ID. The user sees your reason if you reject.</span>
+      </div>
+      <div class="review-actions">
+        <button type="submit" name="decision" value="approve" class="export-button">Approve ID</button>
+        <button type="submit" name="decision" value="reject" class="filter-button">Reject</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- ==================== MANAGE USER MODAL ==================== -->
   <dialog class="adm-modal card-modal" id="manageModal" aria-labelledby="manageHeading">
@@ -537,6 +623,40 @@ $icon = fn($paths) => '<svg aria-hidden="true" width="16" height="16" viewBox="0
     function openModal(id) { document.getElementById(id).showModal(); }
     function closeModal(id) { document.getElementById(id).close(); }
     document.querySelectorAll('.adm-modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.close(); }));
+
+    // ID Verification: show both photos, then approve or reject
+    function openIdReview(u) {
+      const set = (id, text) => { document.getElementById(id).textContent = text; };
+      set('idHeading', 'Review ID: ' + u.name);
+      set('idStatus', u.statusLabel);
+      set('idName', u.name);
+      set('idUser', '@' + u.username + ' · ' + u.email);
+      set('idType', u.type);
+      set('idSent', u.sent);
+      ['front', 'selfie'].forEach(doc => {
+        const url = 'api/admin_id_file.php?user=' + u.id + '&doc=' + doc + '&t=' + Date.now();
+        const key = doc === 'front' ? 'idFront' : 'idSelfie';
+        document.getElementById(key).src = url;
+        document.getElementById(key + 'Link').href = url;
+      });
+      document.getElementById('idUserId').value = u.id;
+      document.getElementById('idNote').value = '';
+      document.getElementById('idNote').classList.remove('has-error');
+      const done = document.getElementById('idDone');
+      done.hidden = u.status === 'pending';
+      done.textContent = u.status === 'verified' ? 'Approved' + (u.reviewed ? ' on ' + u.reviewed : '') + '.'
+        : 'Rejected' + (u.reviewed ? ' on ' + u.reviewed : '') + ': ' + u.note;
+      document.getElementById('idForm').hidden = u.status !== 'pending';
+      openModal('idModal');
+    }
+    document.getElementById('idForm').addEventListener('submit', e => {
+      const note = document.getElementById('idNote');
+      if (e.submitter && e.submitter.value === 'reject' && !note.value.trim()) {
+        e.preventDefault();
+        note.classList.add('has-error');
+        note.focus();
+      }
+    });
 
     // Manage: fill the modal with this user's details and the right action
     function openManage(u) {

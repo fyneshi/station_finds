@@ -27,7 +27,7 @@ $m = $conn->query("SELECT
     (SELECT COUNT(*) FROM seller_profiles s JOIN users u ON u.id = s.user_id WHERE u.status = 'active') AS sellers,
     (SELECT COALESCE(AVG(price), 0) FROM listings WHERE status = 'active') AS avg_price")->fetch_assoc();
 $counts    = sf_admin_counts($conn);
-$attention = array_sum($counts);   // disputes + reports + seller applications + open payouts + listings to review + new feedback
+$attention = array_sum($counts);   // disputes + reports + seller applications + open payouts + listings to review + new feedback + IDs to check
 
 // Finished order items (delivered, returned or completed)
 $completed = 0;
@@ -87,7 +87,7 @@ $typeLabels = ['products' => 'Product', 'rentals' => 'Rental', 'services' => 'Se
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css?v=23" />
+  <link rel="stylesheet" href="css/admin.css?v=25" />
   <link rel="stylesheet" href="css/admin-shell.css?v=5" />
 </head>
 <body>
@@ -144,10 +144,10 @@ $typeLabels = ['products' => 'Product', 'rentals' => 'Rental', 'services' => 'Se
             <p class="stat-trend"><?php echo $e(trend_text((float) $m['sales_month'], (float) $m['sales_last'], 'vs last month')); ?> · <?php echo (int) $m['orders_month']; ?> order<?php echo $m['orders_month'] == 1 ? '' : 's'; ?></p>
           </div>
 
-          <a href="<?php echo $counts['transactions'] ? 'admin_transactions.php' : ($counts['moderation'] ? 'admin_moderation.php' : ($counts['seller-apps'] ? 'admin_sellers.php' : ($counts['payouts'] ? 'admin_payouts.php' : ($counts['listings'] ? 'admin_listings.php' : 'admin_feedback.php')))); ?>" class="stat-card">
+          <a href="<?php echo $counts['transactions'] ? 'admin_transactions.php' : ($counts['moderation'] ? 'admin_moderation.php' : ($counts['seller-apps'] ? 'admin_sellers.php' : ($counts['payouts'] ? 'admin_payouts.php' : ($counts['listings'] ? 'admin_listings.php' : ($counts['users'] ? 'admin_users.php?tab=ids' : 'admin_feedback.php'))))); ?>" class="stat-card">
             <div class="stat-card-top"><span class="stat-label">Needs attention</span><div class="stat-icon-wrapper pending-icon"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg></div></div>
             <div class="stat-value"><?php echo $attention; ?></div>
-            <p class="stat-trend<?php echo $attention ? ' attention' : ''; ?>"><?php echo $counts['transactions']; ?> dispute<?php echo $counts['transactions'] === 1 ? '' : 's'; ?> · <?php echo $counts['moderation']; ?> report<?php echo $counts['moderation'] === 1 ? '' : 's'; ?> · <?php echo $counts['seller-apps']; ?> application<?php echo $counts['seller-apps'] === 1 ? '' : 's'; ?> · <?php echo $counts['payouts']; ?> payout<?php echo $counts['payouts'] === 1 ? '' : 's'; ?> · <?php echo $counts['listings']; ?> to review · <?php echo $counts['feedback']; ?> feedback</p>
+            <p class="stat-trend<?php echo $attention ? ' attention' : ''; ?>"><?php echo $counts['transactions']; ?> dispute<?php echo $counts['transactions'] === 1 ? '' : 's'; ?> · <?php echo $counts['moderation']; ?> report<?php echo $counts['moderation'] === 1 ? '' : 's'; ?> · <?php echo $counts['seller-apps']; ?> application<?php echo $counts['seller-apps'] === 1 ? '' : 's'; ?> · <?php echo $counts['payouts']; ?> payout<?php echo $counts['payouts'] === 1 ? '' : 's'; ?> · <?php echo $counts['listings']; ?> to review · <?php echo $counts['users']; ?> ID check<?php echo $counts['users'] === 1 ? '' : 's'; ?> · <?php echo $counts['feedback']; ?> feedback</p>
           </a>
         </section>
 

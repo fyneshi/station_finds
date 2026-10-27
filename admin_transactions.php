@@ -121,6 +121,10 @@ function order_info(array $o, array $methods) {
             'dispute' => $i['dispute_status'], 'reason' => $i['dispute_reason'], 'details' => $i['dispute_details'],
             'outcome' => $i['dispute_outcome'], 'note' => $i['dispute_note'], 'cancel' => $i['fulfillment'] === 'cancelled' ? ($i['cancel_reason'] !== '' ? $i['cancel_reason'] : 'No reason given') : '',
             'disputed' => $i['disputed_ts'] ? date('M j, Y', $i['disputed_ts']) : '',
+            // A rental's return / refund request the owner declined: the owner's reason and the renter's photos
+            'declined' => $i['return_status'] === 'declined' ? $i['return_response'] : '',
+            'photos' => sf_return_photos($i['return_photos']),
+            'returned' => $i['return_status'] === 'accepted' ? $i['return_reason'] : '',
         ], $o['items']),
     ];
 }
@@ -134,7 +138,7 @@ function order_info(array $o, array $methods) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css?v=23" />
+  <link rel="stylesheet" href="css/admin.css?v=25" />
   <link rel="stylesheet" href="css/admin-shell.css?v=5" />
 </head>
 <body>
@@ -297,6 +301,12 @@ function order_info(array $o, array $methods) {
 
         if (i.dispute === 'open') {
           box.appendChild(el('p', 'dispute-text', '“' + i.reason + '” · reported ' + i.disputed + ': ' + i.details));
+          if (i.declined) box.appendChild(el('p', 'dispute-text muted', 'The owner declined the renter\'s return / refund request: ' + i.declined));
+          if (i.photos.length) {
+            const photos = el('div', 'dispute-photos');
+            i.photos.forEach(p => { const a = el('a'); a.href = p; a.target = '_blank'; a.rel = 'noopener'; const img = el('img'); img.src = p; img.alt = 'Photo from the renter'; a.append(img); photos.append(a); });
+            box.appendChild(photos);
+          }
           const form = document.createElement('form');
           form.method = 'post';
           form.className = 'resolve-form';
@@ -321,6 +331,8 @@ function order_info(array $o, array $methods) {
           box.appendChild(form);
         } else if (i.cancel) {
           box.appendChild(el('p', 'dispute-text muted', 'Cancelled by the buyer: ' + i.cancel));
+        } else if (i.returned) {
+          box.appendChild(el('p', 'dispute-text muted', 'Refunded by the owner after a return / refund request (“' + i.returned + '”).'));
         } else if (i.dispute === 'resolved') {
           box.appendChild(el('p', 'dispute-text muted', (i.outcome === 'refund' ? 'Refunded' : 'Released to seller') + ' after a dispute (“' + i.reason + '”). Note: ' + i.note));
         }

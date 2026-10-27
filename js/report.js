@@ -1,6 +1,6 @@
 /* ==========================================================================
-   STATION FINDS — REPORT A LISTING OR USER
-   Any button with data-report-type ("listing" | "user"), data-report-id,
+   STATION FINDS — REPORT A LISTING, USER OR COMMENT
+   Any button with data-report-type ("listing" | "user" | "comment"), data-report-id,
    data-report-name and data-report-reasons (JSON list) opens a small form that
    sends the report to report_handler.php. Admins review it in admin_moderation.php.
    Needs js/cart.js (for SFCart.toast).
@@ -46,8 +46,11 @@
     let reasons = [];
     try { reasons = JSON.parse(btn.dataset.reportReasons || '[]'); } catch (e) { /* none */ }
 
-    document.getElementById('sfReportTitle').textContent = current.type === 'user' ? 'Report user' : 'Report listing';
-    document.getElementById('sfReportSub').textContent = 'Reporting "' + btn.dataset.reportName + '". The ' + (current.type === 'user' ? 'user' : 'seller') + ' won\'t see who reported them.';
+    const name = btn.dataset.reportName;
+    document.getElementById('sfReportTitle').textContent = { user: 'Report user', comment: 'Report comment' }[current.type] || 'Report listing';
+    document.getElementById('sfReportSub').textContent = current.type === 'comment'
+      ? 'Reporting a comment by ' + name + '. They won\'t see who reported them.'
+      : 'Reporting "' + name + '". The ' + (current.type === 'user' ? 'user' : 'seller') + ' won\'t see who reported them.';
     const select = document.getElementById('sfReportReason');
     select.innerHTML = '<option value="">Choose a reason…</option>';
     reasons.forEach(r => {
@@ -126,7 +129,7 @@
 
   injectStyles();
   document.addEventListener('click', e => {
-    const btn = e.target.closest('[data-report-type]');
+    const btn = e.target.closest('button[data-report-type], a[data-report-type]');   // not rental_detail.php's own report forms
     if (btn) { e.preventDefault(); open(btn); }
   });
 })();

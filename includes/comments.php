@@ -1,8 +1,10 @@
 <?php
 /**
  * Questions & Comments and Ratings & Reviews on the listing pages (rental_detail.php).
- * Needs db_setup.php ($conn) and inbox.php (sf_notify).
+ * Needs db_setup.php ($conn) and inbox.php (sf_notify). Reporting a comment uses js/report.js.
  */
+
+require_once __DIR__ . '/reports.php';   // SF_REPORT_REASONS for the "Report comment" menu item
 
 const SF_COMMENT_MAX     = 1000;   // characters per comment
 const SF_COMMENTS_PER_HR = 20;     // comments one user can post in an hour
@@ -127,14 +129,30 @@ function sf_render_comments(array $item, array $comments, $pageLink, $csrf, $err
     $when = fn($ts) => date('M j, Y', $ts);
     [$title, $placeholder, $emptyText] = $labels;
     $sellerId = (int) $item['seller_id'];
-    $person = function ($c, $small = false) use ($e, $when, $sellerId) { ?>
+    $me       = (int) ($_SESSION['user_id'] ?? 0);
+    $reasons  = json_encode(SF_REPORT_REASONS['comment']);
+    $person = function ($c, $small = false) use ($e, $when, $sellerId, $me, $reasons) { ?>
                 <div class="comment-header">
                   <div class="comment-user">
                     <div class="comment-avatar<?php echo $small ? ' small' : ''; ?>"><?php echo sf_avatar_html($c['name'], $c['avatar']); ?></div>
                     <a href="profile.php?id=<?php echo (int) $c['user_id']; ?>" class="comment-author"><?php echo $e($c['name']); ?></a>
                     <?php if ((int) $c['user_id'] === $sellerId): ?><span class="owner-tag">Owner</span><?php endif; ?>
                   </div>
-                  <span class="comment-date"><?php echo $when($c['ts']); ?></span>
+                  <div class="comment-side">
+                    <span class="comment-date"><?php echo $when($c['ts']); ?></span>
+                    <!-- ⋯ menu (like Messenger): copy the text, or report someone else's comment -->
+                    <div class="comment-more-wrap">
+                      <button type="button" class="comment-more" aria-label="More options" aria-haspopup="menu" aria-expanded="false" onclick="toggleCommentMenu(this)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg>
+                      </button>
+                      <div class="comment-menu" role="menu" hidden>
+                        <button type="button" class="comment-menu-item" role="menuitem" data-action="copy">Copy text</button>
+                        <?php if ((int) $c['user_id'] !== $me): ?>
+                        <button type="button" class="comment-menu-item danger" role="menuitem" data-report-type="comment" data-report-id="<?php echo (int) $c['id']; ?>" data-report-name="<?php echo $e($c['name']); ?>" data-report-reasons="<?php echo $e($reasons); ?>">Report comment</button>
+                        <?php endif; ?>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <p class="comment-text"><?php echo nl2br($e($c['body'])); ?></p>
     <?php };
@@ -234,6 +252,32 @@ function sf_render_comments(array $item, array $comments, $pageLink, $csrf, $err
           }
           openLinkedComment();
           window.addEventListener('hashchange', openLinkedComment);
+
+          // The ⋯ menu on a comment: open one at a time; a click elsewhere or Esc closes it
+          function closeCommentMenus(except) {
+            document.querySelectorAll('.comment-more[aria-expanded="true"]').forEach(b => {
+              if (b === except) return;
+              b.setAttribute('aria-expanded', 'false');
+              b.nextElementSibling.hidden = true;
+            });
+          }
+          function toggleCommentMenu(btn) {
+            const menu = btn.nextElementSibling;
+            closeCommentMenus(btn);
+            menu.hidden = !menu.hidden;
+            btn.setAttribute('aria-expanded', String(!menu.hidden));
+            if (!menu.hidden) menu.querySelector('button').focus();
+          }
+          document.addEventListener('click', async e => {
+            const item = e.target.closest('.comment-menu-item');
+            if (!e.target.closest('.comment-more-wrap') || item) closeCommentMenus();
+            if (item && item.dataset.action === 'copy') {
+              const text = item.closest('.comment-item, .comment-reply').querySelector(':scope > .comment-text').innerText;
+              try { await navigator.clipboard.writeText(text); if (window.SFCart) SFCart.toast('Comment copied.'); }
+              catch (err) { if (window.SFCart) SFCart.toast('Could not copy the comment.', true); }
+            }
+          });
+          document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCommentMenus(); });
           <?php if ($error): ?>document.getElementById('comments').scrollIntoView();   // show what needs fixing<?php endif; ?>
         </script>
     <?php

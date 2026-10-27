@@ -568,6 +568,23 @@ $addColumns = [
     // 1 while this order item holds stock taken at checkout; set back to 0 when a cancellation returns it,
     // so stock is never taken or returned twice
     ['order_items', 'stock_deducted', "TINYINT(1) NOT NULL DEFAULT 0"],
+    // Rentals: the renter asks for a return / refund (account.php). return_status '' | requested |
+    // accepted (refunded) | declined (the owner said no; it then goes to an admin as a dispute)
+    ['order_items', 'return_status',       "VARCHAR(20) NOT NULL DEFAULT ''"],
+    ['order_items', 'return_reason',       "VARCHAR(60) NOT NULL DEFAULT ''"],
+    ['order_items', 'return_details',      "VARCHAR(1000) NOT NULL DEFAULT ''"],
+    ['order_items', 'return_photos',       "TEXT NULL"],
+    ['order_items', 'return_response',     "VARCHAR(255) NOT NULL DEFAULT ''"],
+    ['order_items', 'return_requested_at', "TIMESTAMP NULL DEFAULT NULL"],
+    // ID verification for renting (Account › Edit Profile, checked in admin_users.php).
+    // id_status '' | pending | verified | rejected; the photos live in private/ids like seller IDs
+    ['users', 'id_status',       "VARCHAR(20) NOT NULL DEFAULT ''"],
+    ['users', 'id_type',         "VARCHAR(40) NOT NULL DEFAULT ''"],
+    ['users', 'id_front',        "VARCHAR(80) NOT NULL DEFAULT ''"],
+    ['users', 'id_selfie',       "VARCHAR(80) NOT NULL DEFAULT ''"],
+    ['users', 'id_note',         "VARCHAR(255) NOT NULL DEFAULT ''"],
+    ['users', 'id_submitted_at', "TIMESTAMP NULL DEFAULT NULL"],
+    ['users', 'id_reviewed_at',  "TIMESTAMP NULL DEFAULT NULL"],
 ];
 foreach ($addColumns as [$table, $column, $definition]) {
     $check = $conn->query("SHOW COLUMNS FROM `$table` LIKE '$column'");

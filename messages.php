@@ -204,7 +204,7 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
 
   <script src="js/cart.js?v=6"></script>
   <script src="js/inbox.js?v=4"></script>
-  <script src="js/report.js?v=2"></script>
+  <script src="js/report.js?v=3"></script>
   <script src="js/profile-menu.js?v=2"></script>
   <script>
     // ── Conversation search: filters chats and shows matching people ──

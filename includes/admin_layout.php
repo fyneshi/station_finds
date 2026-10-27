@@ -31,10 +31,11 @@ function sf_admin_counts($conn) {
         (SELECT COUNT(*) FROM listings WHERE status = 'pending') AS listings,
         (SELECT COUNT(*) FROM seller_profiles WHERE status = 'pending') AS seller_apps,
         (SELECT COUNT(*) FROM reports WHERE status IN ('open', 'escalated')) AS reports,
-        (SELECT COUNT(DISTINCT order_id) FROM order_items WHERE dispute_status = 'open') AS disputes")->fetch_assoc();
+        (SELECT COUNT(DISTINCT order_id) FROM order_items WHERE dispute_status = 'open') AS disputes,
+        (SELECT COUNT(*) FROM users WHERE id_status = 'pending') AS ids")->fetch_assoc();
     return ['payouts' => (int) $row['payouts'], 'feedback' => (int) $row['feedback'],
             'listings' => (int) $row['listings'], 'seller-apps' => (int) $row['seller_apps'],
-            'moderation' => (int) $row['reports'], 'transactions' => (int) $row['disputes']];
+            'moderation' => (int) $row['reports'], 'transactions' => (int) $row['disputes'], 'users' => (int) $row['ids']];
 }
 
 // ── Roles & permissions (set in admin_settings.php) ─────────────
@@ -165,7 +166,7 @@ function sf_admin_events($conn, $adminId) {
         $what = $r['target_type'] === 'listing' ? '"' . $r['target_name'] . '"' : $r['target_name'];
         $open = in_array($r['status'], ['open', 'escalated'], true);
         if ($r['ts'] >= strtotime('-30 days')) {
-            $add('report-' . $r['id'], 'moderation', 'moderation', ($r['target_type'] === 'listing' ? 'Listing' : 'User') . ' reported',
+            $add('report-' . $r['id'], 'moderation', 'moderation', (['listing' => 'Listing', 'comment' => 'Comment'][$r['target_type']] ?? 'User') . ' reported',
                  $what . ' was reported for ' . mb_strtolower($r['reason']), $open ? ($r['status'] === 'escalated' ? 'Escalated' : 'Flagged') : 'Closed',
                  $open ? 'flagged' : 'muted', (int) $r['ts'], $open ? 'Moderate' : null, 'admin_moderation.php?tab=' . $r['target_type']);
         }
@@ -225,6 +226,16 @@ function sf_admin_events($conn, $adminId) {
         $open = in_array($r['status'], ['pending', 'escalated'], true);
         $add('feedback-' . $r['id'], 'other', 'feedback', 'New feedback', ($r['name'] ?: 'Someone') . ' wrote: ' . $r['subject'],
              $open ? 'New' : $r['status'], $open ? 'new' : 'muted', (int) $r['ts'], $open ? 'Review' : null, 'admin_feedback.php?tab=platform');
+    }
+
+    // IDs sent for verification (needed to rent)
+    $res = $conn->query("SELECT id, COALESCE(NULLIF(full_name, ''), username) AS name, id_type, id_status, UNIX_TIMESTAMP(id_submitted_at) AS ts
+                         FROM users WHERE id_submitted_at >= $since");
+    while ($r = $res->fetch_assoc()) {
+        $pending = $r['id_status'] === 'pending';
+        $add('renter-id-' . $r['id'] . '-' . $r['ts'], 'users', 'users', 'ID sent for verification', $r['name'] . ' uploaded a ' . $r['id_type'] . ' to rent items',
+             $pending ? 'Pending' : $r['id_status'], $pending ? 'pending' : ($r['id_status'] === 'verified' ? 'done' : 'flagged'), (int) $r['ts'],
+             $pending ? 'Review' : null, 'admin_users.php?tab=ids');
     }
 
     // New accounts

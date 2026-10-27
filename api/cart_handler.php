@@ -106,6 +106,7 @@ switch ($action) {
         if (!isset($catalog[$id])) fail('That listing is not available.');
         $item  = $catalog[$id];
         if ($item['seller_id'] === $userId) fail('This is your own listing.');
+        if ($item['type'] === 'rentals' && !sf_id_verified($conn, $userId)) fail(SF_VERIFY_MESSAGE, ['verify' => SF_VERIFY_LINK]);
         $qty   = max(1, (int) ($input['qty'] ?? 1));
         if ($qty > SF_MAX_QTY) fail('You can order up to ' . SF_MAX_QTY . ' at a time.');
         $units = (int) ($input['units'] ?? $item['units'][0]);
@@ -135,6 +136,7 @@ switch ($action) {
         if (!isset($catalog[$id])) fail('That listing is not available.');
         $item = $catalog[$id];
         if ($item['seller_id'] === $userId) fail('This is your own listing.');
+        if ($item['type'] === 'rentals' && !sf_id_verified($conn, $userId)) fail(SF_VERIFY_MESSAGE, ['verify' => SF_VERIFY_LINK]);
         $qty   = $item['type'] === 'products' ? max(1, (int) ($input['qty'] ?? 1)) : 1;
         if ($qty > SF_MAX_QTY) fail('You can order up to ' . SF_MAX_QTY . ' at a time.');
         $units = (int) ($input['units'] ?? $item['units'][0]);

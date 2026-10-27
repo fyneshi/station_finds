@@ -17,7 +17,8 @@
     ['a[href^="favorites.php"], .card-fav-btn, .card-favorite-btn, .detail-fav-btn', 'Log in to save listings you like.'],
     ['a[href^="account.php"], a[href^="listing_form.php"], a[href^="become_seller.php"]', 'Log in to see your account, orders and listings.'],
     ['.report-link, .report-card select, .report-card textarea, .report-card button', 'Log in to report a listing or a user.'],
-    ['.comments-card textarea, .comments-card button:not(.comment-replies-toggle), .comments-card input[type="submit"]', 'Log in to ask a question or leave a comment.'],
+    ['.comments-card textarea, .comments-card button:not(.comment-replies-toggle):not(.comment-more):not(.comment-menu-item), .comments-card input[type="submit"]', 'Log in to ask a question or leave a comment.'],
+    ['.comment-menu [data-report-type]', 'Log in to report a comment.'],
     ['[data-guest-gate]', 'Log in or create an account to continue.'],
   ];
   const ALL = GATES.map(g => g[0]).join(', ');

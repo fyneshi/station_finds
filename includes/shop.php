@@ -462,6 +462,21 @@ function sf_location_label(array $options, $loc) {
     return $options[$loc] ?? '';
 }
 
+// ── ID verification: renting needs a verified ID (seller.php › sf_submit_renter_id) ──
+const SF_VERIFY_LINK    = 'account.php?tab=profile#verify';
+const SF_VERIFY_MESSAGE = 'Verify your ID before renting. Upload a valid ID in Account › Edit Profile; an admin checks it.';
+
+// Verified: an admin approved their ID, or approved their seller application (which includes an ID)
+function sf_id_verified($conn, $userId) {
+    $stmt = $conn->prepare("SELECT u.id_status, sp.status AS seller_status, sp.id_document
+                            FROM users u LEFT JOIN seller_profiles sp ON sp.user_id = u.id WHERE u.id = ?");
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $row && ($row['id_status'] === 'verified' || ($row['seller_status'] === 'approved' && $row['id_document'] !== ''));
+}
+
 // Counts only items still for sale (a listing may have been unpublished or deleted)
 function sf_cart_count($conn, $userId) {
     return array_sum(array_column(sf_cart_items($conn, $userId), 'quantity'));

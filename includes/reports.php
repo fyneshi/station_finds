@@ -1,13 +1,15 @@
 <?php
 /**
- * Reporting listings and users (report_handler.php, js/report.js) and reviewing
+ * Reporting listings, users and comments (report_handler.php, js/report.js) and reviewing
  * the reports (admin_moderation.php). Needs db_setup.php included first ($conn).
  */
 
 const SF_REPORT_REASONS = [
     'listing' => ['Suspicious pricing', 'Misleading description', 'Counterfeit item', 'Prohibited item', 'Spam or duplicate listing', 'Other'],
     'user'    => ['Harassment in messages', 'Scam attempt', 'Spam', 'Impersonation', 'Other'],
+    'comment' => ['Spam', 'Harassment or bullying', 'Hate speech', 'Scam or misleading', 'Inappropriate content', 'Other'],
 ];
+const SF_REPORT_WORDS = ['listing' => 'listing', 'user' => 'account', 'comment' => 'comment'];   // "You can't report your own …"
 const SF_REPORTS_PER_DAY = 10;   // reports one user can file in 24 hours
 
 // What's being reported: ['name' => ..., 'owner_id' => user who owns it] or null if it doesn't exist
@@ -16,6 +18,10 @@ function sf_report_target($conn, $type, $id) {
         $stmt = $conn->prepare("SELECT title AS name, seller_id AS owner_id FROM listings WHERE id = ?");
     } elseif ($type === 'user') {
         $stmt = $conn->prepare("SELECT username AS name, id AS owner_id FROM users WHERE id = ? AND role <> 'admin'");
+    } elseif ($type === 'comment') {
+        // Saved as "Comment by carl: <the start of the comment>", so the report still reads well if the comment is removed
+        $stmt = $conn->prepare("SELECT CONCAT('Comment by ', u.username, ': ', REPLACE(c.body, '\n', ' ')) AS name, c.user_id AS owner_id
+                                FROM listing_comments c JOIN users u ON u.id = c.user_id WHERE c.id = ?");
     } else {
         return null;
     }
@@ -36,7 +42,7 @@ function sf_file_report($conn, $reporterId, $type, $targetId, $reason, $details)
 
     $target = sf_report_target($conn, $type, $targetId);
     if (!$target) return 'That ' . $type . ' no longer exists.';
-    if ((int) $target['owner_id'] === (int) $reporterId) return 'You can\'t report your own ' . ($type === 'user' ? 'account' : 'listing') . '.';
+    if ((int) $target['owner_id'] === (int) $reporterId) return 'You can\'t report your own ' . SF_REPORT_WORDS[$type] . '.';
 
     $stmt = $conn->prepare("SELECT
         (SELECT COUNT(*) FROM reports WHERE reporter_id = ? AND target_type = ? AND target_id = ? AND status IN ('open', 'escalated')) AS open_same,

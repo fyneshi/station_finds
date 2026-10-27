@@ -70,6 +70,10 @@ if ($step !== 'done' && !$items) {
 }
 // Something sold out or the quantity is above what's left: the order can't be placed until it's fixed
 $stockProblem = $step === 'done' ? '' : sf_stock_problems($items);
+// Renting needs a verified ID (rentals may have been added before the check existed)
+if ($stockProblem === '' && $step !== 'done' && in_array('rentals', array_column($items, 'type'), true) && !sf_id_verified($conn, $userId)) {
+    $stockProblem = SF_VERIFY_MESSAGE;
+}
 
 // ── Form submissions ────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -299,6 +303,7 @@ function field($name, $label, $delivery, $errors, $opts = []) {
     <div class="shop-grid">
       <div>
         <?php if (!empty($errors['form'])): ?><div class="alert-error"><?php echo $e($errors['form']); ?></div>
+        <?php elseif ($stockProblem === SF_VERIFY_MESSAGE): ?><div class="alert-error"><?php echo $e($stockProblem); ?> <a href="<?php echo SF_VERIFY_LINK; ?>">Verify your ID</a></div>
         <?php elseif ($stockProblem !== ''): ?><div class="alert-error"><?php echo $e($stockProblem); ?> <a href="<?php echo $buyNow ? $e($items[0]['link']) : 'cart.php'; ?>"><?php echo $buyNow ? 'Back to the listing' : 'Go to your cart'; ?></a></div><?php endif; ?>
 
         <?php if ($step === 1): ?>

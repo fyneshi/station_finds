@@ -59,11 +59,16 @@ function sf_notify_message($conn, $receiverId, $senderId, $senderName, $text) {
     }
 }
 
-function sf_notifications($conn, $userId, $limit = 50) {
+// The newest notifications. $withUnread: also every unread one older than that (the bell's
+// Unread tab, js/inbox.js), still newest first.
+function sf_notifications($conn, $userId, $limit = 50, $withUnread = false) {
     $stmt = $conn->prepare("SELECT id, type, title, body, link, read_at IS NOT NULL AS is_read,
                                    UNIX_TIMESTAMP(created_at) AS ts
-                            FROM notifications WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?");
-    $stmt->bind_param("ii", $userId, $limit);
+                            FROM notifications WHERE user_id = ?
+                              AND (id IN (SELECT id FROM (SELECT id FROM notifications WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?) newest)"
+                         . ($withUnread ? " OR read_at IS NULL" : "") . ")
+                            ORDER BY created_at DESC, id DESC");
+    $stmt->bind_param("iii", $userId, $userId, $limit);
     $stmt->execute();
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();

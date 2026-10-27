@@ -62,7 +62,7 @@ $badgeLabels = [
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/favorites.css?v=5" />
-  <link rel="stylesheet" href="css/header.css?v=1" />
+  <link rel="stylesheet" href="css/header.css?v=2" />
   <link rel="stylesheet" href="css/responsive.css?v=2" />
   <style>
     /* Placeholder for saved items that have no photo (e.g. marketplace mockups) */
@@ -245,8 +245,8 @@ $badgeLabels = [
     </div>
   </footer>
 
-  <script src="js/cart.js?v=6"></script>
-  <script src="js/inbox.js?v=4"></script>
+  <script src="js/cart.js?v=7"></script>
+  <script src="js/inbox.js?v=5"></script>
   <script>
     let currentFilter = 'all';
     const typeLabels = { products: 'products', rentals: 'rentals', services: 'services' };

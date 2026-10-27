@@ -21,6 +21,13 @@ $userId        = (int) $_SESSION['user_id'];
 $notifications = sf_notifications($conn, $userId);
 $unreadCount   = count(array_filter($notifications, fn($n) => !$n['is_read']));
 
+// Notices with no page to open (e.g. "Your report was reviewed") are read once they're seen here.
+// They still show as new on this visit.
+$stmt = $conn->prepare("UPDATE notifications SET read_at = CURRENT_TIMESTAMP WHERE user_id = ? AND read_at IS NULL AND link = ''");
+$stmt->bind_param("i", $userId);
+$stmt->execute();
+$stmt->close();
+
 // Split into "Today" and "Earlier"
 $groups = ['Today' => [], 'Earlier' => []];
 foreach ($notifications as $n) {
@@ -49,7 +56,7 @@ $e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=6" />
   <link rel="stylesheet" href="css/inbox.css?v=6" />
-  <link rel="stylesheet" href="css/header.css?v=1" />
+  <link rel="stylesheet" href="css/header.css?v=2" />
   <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
 <body>
@@ -97,8 +104,8 @@ $e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=6"></script>
-  <script src="js/inbox.js?v=4"></script>
+  <script src="js/cart.js?v=7"></script>
+  <script src="js/inbox.js?v=5"></script>
   <script>
     function post(payload) {
       return fetch('api/inbox_handler.php', {

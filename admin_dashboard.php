@@ -3,7 +3,7 @@ session_start();
 
 // Check if user is authenticated and has admin role
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    header('Location: index.php');
+    header('Location: index.php?mode=login');
     exit;
 }
 

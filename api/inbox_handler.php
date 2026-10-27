@@ -4,6 +4,7 @@
  *
  * Actions:
  *   - unread:                        unread counts (navbar markers) and, with push on, the newest notification
+ *   - list:                          the newest notifications, for the bell's drop-down panel (js/inbox.js)
  *   - send:           { to, text, reply_to? }  send a chat message (optionally replying to one)
  *   - poll:           { with, after } new messages after id `after`, plus reactions / unsends on recent ones
  *   - react:          { id, emoji }  add, change or remove your reaction to a message
@@ -177,6 +178,14 @@ switch ($action) {
     case 'read_thread':
         sf_mark_thread_read($conn, $userId, (int) ($input['with'] ?? 0));
         echo json_encode(['success' => true] + sf_unread_counts($conn, $userId));
+        break;
+
+    case 'list':
+        $items = array_map(fn($n) => [
+            'id' => (int) $n['id'], 'type' => $n['type'], 'title' => $n['title'], 'body' => $n['body'],
+            'link' => sf_safe_link($n['link']), 'time' => sf_time_ago($n['ts']), 'today' => sf_is_today($n['ts']), 'unread' => !$n['is_read'],
+        ], sf_notifications($conn, $userId, 20, true));
+        echo json_encode(['success' => true, 'items' => $items] + sf_unread_counts($conn, $userId));
         break;
 
     case 'read':

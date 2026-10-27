@@ -87,7 +87,7 @@ $csrf = sf_csrf_token();
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=6" />
   <link rel="stylesheet" href="css/profile.css?v=3" />
-  <link rel="stylesheet" href="css/header.css?v=1" />
+  <link rel="stylesheet" href="css/header.css?v=2" />
   <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
 <body>
@@ -205,8 +205,8 @@ $csrf = sf_csrf_token();
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=6"></script>
-  <script src="js/inbox.js?v=4"></script>
+  <script src="js/cart.js?v=7"></script>
+  <script src="js/inbox.js?v=5"></script>
   <script>
     function toggleReport(btn) {
       const form = document.getElementById('pfReport');

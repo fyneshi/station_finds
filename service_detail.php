@@ -49,7 +49,7 @@ $csrf     = sf_csrf_token();
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/detail.css?v=15" />
-  <link rel="stylesheet" href="css/header.css?v=1" />
+  <link rel="stylesheet" href="css/header.css?v=2" />
   <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
 <body>
@@ -303,8 +303,8 @@ $csrf     = sf_csrf_token();
     </form>
   </dialog>
 
-  <script src="js/cart.js?v=6"></script>
-  <script src="js/inbox.js?v=4"></script>
+  <script src="js/cart.js?v=7"></script>
+  <script src="js/inbox.js?v=5"></script>
   <script src="js/report.js?v=3"></script>
   <script>
     const ITEM_ID = <?php echo json_encode($item['id']); ?>;

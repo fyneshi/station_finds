@@ -14,13 +14,21 @@ if (isset($_SESSION['user_id'])) {
     }
     exit;
 }
+
+// Visitors who just open the site (from a search engine, a shared link or the address bar) start by
+// browsing as a guest, like most shops. This page shows only when they choose to log in or sign up:
+// index.php?mode=login | ?mode=signup | ?next=page.php
+if (($_SERVER['QUERY_STRING'] ?? '') === '') {
+    header('Location: home.php');
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Authentication Flow</title>
+  <title>Log in or sign up — Station Finds</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -230,7 +238,7 @@ if (isset($_SESSION['user_id'])) {
   </div>
 
   <script>window.SF_NEXT = <?php echo json_encode($next); ?>;</script>
-  <script src="js/script.js?v=8"></script>
+  <script src="js/script.js?v=9"></script>
   <?php if ($startMode === 'signup'): ?><script>setAuthMode('signup');</script><?php endif; ?>
 </body>
 </html>

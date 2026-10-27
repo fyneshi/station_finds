@@ -29,7 +29,7 @@
       dialog = document.createElement('dialog');
       dialog.className = 'sf-guest-modal';
       dialog.setAttribute('aria-labelledby', 'sfGuestTitle');
-      const login = window.SF_LOGIN || 'index.php';
+      const login = window.SF_LOGIN || 'index.php?mode=login';
       dialog.innerHTML =
         '<div class="sf-guest-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></div>' +
         '<h2 id="sfGuestTitle">Log in to continue</h2><p class="sf-guest-msg"></p>' +

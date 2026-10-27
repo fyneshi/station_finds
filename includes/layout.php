@@ -13,8 +13,27 @@ function sf_current_page() {
 // The site header. $active highlights: home | market | messages | notifications | cart.
 // Guests (not logged in) see Log in / Sign up instead of the account menu, and js/guest.js
 // asks them to log in when they open notifications, messages, the cart and other account features.
+// Opening a page counts as reading the notifications that point to it (an order update on
+// account.php?tab=seller, a reply on a listing, …), however the user got there, so the bell's
+// count goes down without having to click each notification.
+function sf_read_notifications_for_page($conn, $userId) {
+    $page  = sf_current_page();
+    $pages = [$page];
+    if ($page === 'account.php' || $page === 'account.php?tab=buyer') $pages = ['account.php', 'account.php?tab=buyer'];   // the default tab
+    $marks = implode(',', array_fill(0, count($pages), '?'));
+    // "Order placed" points to that order's confirmation page; the Buyer Dashboard lists the same orders
+    $orders = in_array('account.php', $pages, true) ? " OR link LIKE 'checkout.php?step=done&order=%'" : '';
+    $stmt  = $conn->prepare("UPDATE notifications SET read_at = CURRENT_TIMESTAMP
+                             WHERE user_id = ? AND read_at IS NULL AND (SUBSTRING_INDEX(link, '#', 1) IN ($marks)$orders)");
+    $stmt->bind_param('i' . str_repeat('s', count($pages)), $userId, ...$pages);
+    $stmt->execute();
+    $stmt->close();
+}
+
 function sf_render_navbar($cartCount = 0, $active = '') {
+    global $conn;
     $guest    = empty($_SESSION['user_id']);
+    if (!$guest && ($_SESSION['role'] ?? '') !== 'admin' && isset($conn)) sf_read_notifications_for_page($conn, (int) $_SESSION['user_id']);
     $username = $_SESSION['username'] ?? 'User';
     $email    = $_SESSION['email'] ?? '';
     $isAdmin  = ($_SESSION['role'] ?? '') === 'admin';
@@ -90,7 +109,7 @@ function sf_render_navbar($cartCount = 0, $active = '') {
   </header>
   <?php if ($guest): ?>
   <script>window.SF_GUEST = true; window.SF_LOGIN = <?php echo json_encode($loginLink); ?>;</script>
-  <script src="js/guest.js?v=3" defer></script>
+  <script src="js/guest.js?v=4" defer></script>
   <?php else: ?>
   <script>
     // Close the account menu when clicking anywhere else

@@ -295,12 +295,30 @@ const SF_BELL_SHOWN = 20;   // notifications in the bell's drop-down (the rest: 
 function sf_admin_shell_start($active, $searchPlaceholder = null) {
     global $conn;
     $counts   = sf_admin_counts($conn);
-    $events   = sf_admin_events($conn, (int) ($_SESSION['user_id'] ?? 0));
+    $adminId  = (int) ($_SESSION['user_id'] ?? 0);
+    $events   = sf_admin_events($conn, $adminId);
+    $here     = basename($_SERVER['SCRIPT_NAME']) . (isset($_GET['tab']) && preg_match('/^[a-z-]+$/', $_GET['tab']) ? '?tab=' . $_GET['tab'] : '');
+    // Opening a page counts as reading the notifications that point to it (like the users' bell),
+    // however the admin got there, e.g. Seller Applications › Pending from the sidebar
+    // Same page, and the same tab unless either has none (no tab = the page's main list)
+    $samePage = function ($go) use ($here) {
+        [$goPage, $goTab] = array_pad(explode('?tab=', $go, 2), 2, '');
+        [$herePage, $hereTab] = array_pad(explode('?tab=', $here, 2), 2, '');
+        return $goPage === $herePage && ($goTab === '' || $hereTab === '' || $goTab === $hereTab);
+    };
+    $stmt = $conn->prepare("INSERT IGNORE INTO admin_notice_reads (admin_id, event_key) VALUES (?, ?)");
+    foreach ($events as &$ev) {
+        if (!$ev['unread'] || !$samePage($ev['go'])) continue;
+        $stmt->bind_param("is", $adminId, $ev['key']);
+        $stmt->execute();
+        $ev['unread'] = false;
+    }
+    unset($ev);
+    $stmt->close();
     $unread   = count(array_filter($events, fn($ev) => $ev['unread']));
     $badges   = $counts;   // sidebar key => number waiting
     $menu     = sf_admin_menu();
     $csrf     = sf_csrf_token();
-    $here     = basename($_SERVER['SCRIPT_NAME']) . (isset($_GET['tab']) && preg_match('/^[a-z-]+$/', $_GET['tab']) ? '?tab=' . $_GET['tab'] : '');
     $name     = $_SESSION['username'] ?? 'Admin';
     $initials = strtoupper(mb_substr($name, 0, 2));
     $e        = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');

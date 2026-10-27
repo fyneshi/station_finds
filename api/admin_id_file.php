@@ -9,7 +9,7 @@ session_start();
 
 // Admins only
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
-    header('Location: ../index.php');
+    header('Location: ../index.php?mode=login');
     exit;
 }
 

@@ -36,12 +36,13 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Station Finds — Home</title>
+  <title>Station Finds — Buy, rent and book services from fellow students</title>
+  <meta name="description" content="Station Finds is a campus marketplace for Our Lady of Fatima University students: buy and sell items, rent gadgets and books, and book student services. Browse freely, no account needed." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/home.css?v=8" />
-  <link rel="stylesheet" href="css/header.css?v=1" />
+  <link rel="stylesheet" href="css/header.css?v=2" />
   <link rel="stylesheet" href="css/responsive.css?v=2" />
   <script>
     // Home animations (js/home-motion.js): hide cards only when they'll be animated in.
@@ -251,8 +252,8 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
 
   <!-- Favorite hearts (saved to the database, shared with Marketplace / Search / Favorites) -->
   <script src="js/favorites.js?v=4"></script>
-  <script src="js/cart.js?v=6"></script>
-  <script src="js/inbox.js?v=4"></script>
+  <script src="js/cart.js?v=7"></script>
+  <script src="js/inbox.js?v=5"></script>
   <script src="js/home-motion.js?v=2"></script>
   <script>
     function toggleUserDropdown() {

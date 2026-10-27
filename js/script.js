@@ -164,6 +164,6 @@ async function handleResetSubmit(e) {
 async function handleLogout() {
   const result = await sendAuthRequest({ action: 'logout' });
   if (result.success) {
-    window.location.href = 'index.php';
+    window.location.href = 'home.php';   // back to browsing as a guest
   }
 }

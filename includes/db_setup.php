@@ -685,7 +685,7 @@ if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['user_id'])) {
             http_response_code(401);
             echo json_encode(['success' => false, 'message' => 'Your account has been suspended. Contact support@stationfinds.edu.ph.']);
         } else {
-            header('Location: ' . sf_root_url('index.php'));
+            header('Location: ' . sf_root_url('index.php?mode=login'));
         }
         exit;
     }

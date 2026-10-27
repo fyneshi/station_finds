@@ -36,7 +36,7 @@
     // Session expired: send the user to the login page
     if (res.status === 401) {
       toast(data.message || 'Please log in first.', true);
-      setTimeout(() => { window.location.href = 'index.php'; }, 1200);
+      setTimeout(() => { window.location.href = 'index.php?next=' + encodeURIComponent(location.pathname.split('/').pop() + location.search); }, 1200);
     }
     return data;
   }

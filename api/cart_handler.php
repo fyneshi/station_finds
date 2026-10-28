@@ -4,6 +4,7 @@
  *
  * Actions:
  *   - count:         number of items in the cart (for the navbar badge)
+ *   - preview:       the newest items in the cart, for the cart icon's drop-down panel (js/cart.js)
  *   - add:           { id, qty, units }  add a catalog item (units = days / hours)
  *   - buy_now:       { id, qty, units }  check out just this item next (the cart is left alone)
  *   - update:        { key, qty }        change quantity
@@ -99,6 +100,16 @@ switch ($action) {
 
     case 'count':
         echo json_encode(['success' => true, 'count' => sf_cart_count($conn, $userId)]);
+        break;
+
+    case 'preview':
+        // Newest first, like a shop's "Recently Added Products"
+        $items = array_reverse(sf_cart_items($conn, $userId));
+        $shown = array_map(fn($i) => [
+            'title' => $i['title'], 'image' => $i['image'], 'link' => $i['link'], 'quantity' => $i['quantity'],
+            'price' => sf_peso($i['price']) . ($i['unit'] !== '' ? ' / ' . $i['unit'] : ''),
+        ], array_slice($items, 0, 5));
+        echo json_encode(['success' => true, 'items' => $shown, 'more' => max(0, count($items) - 5), 'count' => sf_cart_count($conn, $userId)]);
         break;
 
     case 'add':

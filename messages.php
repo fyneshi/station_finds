@@ -72,7 +72,7 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=6" />
   <link rel="stylesheet" href="css/inbox.css?v=6" />
-  <link rel="stylesheet" href="css/header.css?v=2" />
+  <link rel="stylesheet" href="css/header.css?v=3" />
   <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
 <body>
@@ -202,7 +202,7 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=7"></script>
+  <script src="js/cart.js?v=8"></script>
   <script src="js/inbox.js?v=5"></script>
   <script src="js/report.js?v=3"></script>
   <script src="js/profile-menu.js?v=2"></script>

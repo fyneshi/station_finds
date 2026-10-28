@@ -182,3 +182,30 @@
 @media (max-width: 640px) {
   .navbar .sf-bell-panel { position: fixed; top: 64px; right: 8px; left: 8px; width: auto; max-height: calc(100vh - 140px); }
 }
+
+/* ── Cart drop-down: "Recently Added Products" (js/cart.js), like Shopee's ── */
+.navbar .icon-btn.cart-btn.panel-open { background-color: rgba(212, 168, 67, 0.22); color: var(--hdr-yellow); }
+.navbar .sf-cart-panel {
+  position: absolute; top: calc(100% + 14px); right: 0; z-index: 1200; display: flex; flex-direction: column;
+  width: min(400px, calc(100vw - 24px)); border: 1px solid #ebdccb; border-radius: 10px; background: #ffffff; color: #18232A;
+  box-shadow: 0 12px 32px rgba(24, 35, 42, 0.28); text-align: left;
+}
+.navbar .sf-cart-panel[hidden] { display: none; }
+.navbar .sf-cart-head { margin: 0; padding: 12px 14px 8px; font-size: 14px; font-weight: 600; color: #94a3b8; }
+.navbar .sf-cart-list { max-height: 330px; overflow-y: auto; }
+.navbar .sf-cart-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; color: #18232A; text-decoration: none; }
+.navbar .sf-cart-item:hover { background: #faf6ee; }
+.navbar .sf-cart-item img { width: 44px; height: 44px; flex-shrink: 0; object-fit: cover; border: 1px solid #ebdccb; border-radius: 4px; background: #f8f5ef; }
+.navbar .sf-cart-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; }
+.navbar .sf-cart-name small { color: #64748b; font-size: 12.5px; }
+.navbar .sf-cart-price { flex-shrink: 0; font-size: 14px; font-weight: 700; color: #b8862b; }
+.navbar .sf-cart-empty, .navbar .sf-cart-more { margin: 0; padding: 14px; font-size: 13.5px; color: #64748b; text-align: center; }
+.navbar .sf-cart-more { padding: 6px 14px 2px; font-size: 12.5px; }
+.navbar .sf-cart-view {
+  align-self: flex-end; margin: 10px 14px 14px; padding: 10px 16px; border-radius: 6px; background: var(--hdr-yellow); color: #ffffff;
+  font-size: 14px; font-weight: 700; text-decoration: none; transition: filter 0.15s;
+}
+.navbar .sf-cart-view:hover { filter: brightness(1.07); }
+@media (max-width: 640px) {
+  .navbar .sf-cart-panel { position: fixed; top: 64px; right: 8px; left: 8px; width: auto; }
+}

@@ -139,10 +139,81 @@
 
   window.SFCart = { add: add, buyNow: buyNow, post: post, setBadge: setBadge, toast: toast };
 
+  // ── The cart icon's drop-down: "Recently Added Products" (like Shopee) ──
+  // Ctrl/Cmd-click still opens the cart page; View My Shopping Cart goes there too.
+  let cartPanel = null, cartLink = null;
+  const make = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+
+  async function fillCartPanel() {
+    const list = cartPanel.querySelector('.sf-cart-list');
+    if (!list.children.length) list.append(make('p', 'sf-cart-empty', 'Loading…'));
+    try {
+      const r = await post({ action: 'preview' });
+      if (!r.success) throw new Error();
+      setBadge(r.count);
+      list.replaceChildren();
+      if (!r.items.length) {
+        list.append(make('p', 'sf-cart-empty', 'Your cart is empty. Find something you like in the marketplace.'));
+      }
+      r.items.forEach(i => {
+        const row = make('a', 'sf-cart-item');
+        row.href = i.link;
+        const img = make('img');
+        img.src = i.image; img.alt = ''; img.loading = 'lazy';
+        const name = make('span', 'sf-cart-name', i.title);
+        if (i.quantity > 1) name.append(make('small', '', ' × ' + i.quantity));
+        row.append(img, name, make('span', 'sf-cart-price', i.price));
+        list.append(row);
+      });
+      if (r.more) list.append(make('p', 'sf-cart-more', r.more + ' more item' + (r.more === 1 ? '' : 's') + ' in your cart'));
+    } catch (e) {
+      list.replaceChildren(make('p', 'sf-cart-empty', 'Could not load your cart. Please try again.'));
+    }
+  }
+
+  function setCartOpen(open) {
+    cartPanel.hidden = !open;
+    cartLink.setAttribute('aria-expanded', String(open));
+    cartLink.classList.toggle('panel-open', open);
+    if (open) fillCartPanel();
+  }
+
+  function initCartPanel() {
+    cartLink = document.querySelector('.navbar a.cart-btn');
+    if (!cartLink) return;
+    cartPanel = make('div', 'sf-cart-panel');
+    cartPanel.setAttribute('role', 'dialog');
+    cartPanel.setAttribute('aria-label', 'Recently added products');
+    cartPanel.hidden = true;
+    const viewCart = make('a', 'sf-cart-view', 'View My Shopping Cart');
+    viewCart.href = 'cart.php';
+    cartPanel.append(make('p', 'sf-cart-head', 'Recently Added Products'), make('div', 'sf-cart-list'), viewCart);
+    cartLink.parentElement.appendChild(cartPanel);
+    cartLink.setAttribute('aria-haspopup', 'dialog');
+    cartLink.setAttribute('aria-expanded', 'false');
+    cartLink.addEventListener('click', e => {
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+      e.preventDefault();
+      setCartOpen(cartPanel.hidden);
+    });
+    document.addEventListener('click', e => {
+      if (!cartPanel.hidden && !cartPanel.contains(e.target) && !cartLink.contains(e.target)) setCartOpen(false);
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !cartPanel.hidden) { setCartOpen(false); cartLink.focus(); }
+    });
+  }
+
   // Show the right count in the navbar badge on page load
   function init() {
     if (window.SF_GUEST) return;   // guests have no cart (js/guest.js asks them to log in)
     if (!document.querySelector('.cart-badge')) return;
+    initCartPanel();
     post({ action: 'count' })
       .then(r => { if (r && r.success) setBadge(r.count); })
       .catch(() => {});

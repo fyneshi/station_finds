@@ -46,7 +46,7 @@ $commitments = [
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=6" />
   <link rel="stylesheet" href="css/about.css?v=3" />
-  <link rel="stylesheet" href="css/header.css?v=2" />
+  <link rel="stylesheet" href="css/header.css?v=3" />
   <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
 <body>
@@ -94,7 +94,7 @@ $commitments = [
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=7"></script>
+  <script src="js/cart.js?v=8"></script>
   <script src="js/inbox.js?v=5"></script>
   <?php sf_render_tabbar(''); ?>
 </body>

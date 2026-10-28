@@ -86,7 +86,7 @@ $services_count = count(array_filter($items, fn($i) => $i['type'] === 'services'
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/search.css?v=5" />
-  <link rel="stylesheet" href="css/header.css?v=2" />
+  <link rel="stylesheet" href="css/header.css?v=3" />
   <link rel="stylesheet" href="css/responsive.css?v=2" />
 </head>
 <body>
@@ -231,7 +231,7 @@ $services_count = count(array_filter($items, fn($i) => $i['type'] === 'services'
 
   <!-- Favorite hearts (saved to the database, shared with Home / Marketplace / Favorites) -->
   <script src="js/favorites.js?v=4"></script>
-  <script src="js/cart.js?v=7"></script>
+  <script src="js/cart.js?v=8"></script>
   <script src="js/inbox.js?v=5"></script>
   <script>
     let currentFilter = 'all';

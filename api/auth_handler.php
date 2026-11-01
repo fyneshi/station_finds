@@ -58,6 +58,12 @@ switch ($action) {
             exit;
         }
 
+        // Same rule as Edit Profile: starts with a letter, so it can't be only numbers
+        if ($usernameError = sf_username_error($username)) {
+            echo json_encode(['success' => false, 'message' => $usernameError]);
+            exit;
+        }
+
         if (strlen($password) < 8) {
             echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters.']);
             exit;

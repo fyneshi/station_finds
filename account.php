@@ -87,9 +87,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'username'  => trim(preg_replace('/\s+/', ' ', (string) ($_POST['username'] ?? ''))),
             'bio'       => trim(preg_replace("/\n{3,}/", "\n\n", str_replace("\r\n", "\n", (string) ($_POST['bio'] ?? '')))),
         ];
-        if (mb_strlen($old['full_name']) > 100) $errors['full_name'] = 'Full name can be up to 100 characters.';
+        if ($nameError = sf_full_name_error($old['full_name'])) $errors['full_name'] = $nameError;
         if (mb_strlen($old['bio']) > 300) $errors['bio'] = 'Keep your About me under 300 characters.';
-        if (!preg_match('/^[\p{L}\p{N} ._-]{3,50}$/u', $old['username'])) $errors['username'] = 'Use 3–50 letters, numbers, spaces, dots, dashes or underscores.';
+        if ($usernameError = sf_username_error($old['username'])) $errors['username'] = $usernameError;
 
         if (!$errors) {
             $stmt = $conn->prepare("SELECT id FROM users WHERE username = ? AND id <> ?");
@@ -359,17 +359,28 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=6" />
-  <link rel="stylesheet" href="css/account.css?v=22" />
+  <link rel="stylesheet" href="css/account.css?v=23" />
   <link rel="stylesheet" href="css/header.css?v=3" />
-  <link rel="stylesheet" href="css/responsive.css?v=2" />
+  <link rel="stylesheet" href="css/responsive.css?v=3" />
+  <link rel="stylesheet" href="css/theme.css?v=1" />
 </head>
 <body>
 
   <?php sf_render_navbar(sf_cart_count($conn, $userId), 'account'); ?>
+  <?php
+    // The band shows the open tab's title (the tab's own heading below is hidden by css/theme.css)
+    $bandTitles = [
+      'buyer'       => ['Buyer Dashboard', 'Overview of your purchases, active rentals, service requests, and saved listings.'],
+      'seller'      => ['Seller Dashboard', 'Overview of your listings, active rentals, and student sales' . ($seller ? ' for ' . $e($seller['store_name']) : '') . '.'],
+      'payouts'     => ['Payout Balance &amp; Settings', 'Released earnings available to withdraw. Excludes past payouts and pending / flagged reservations.'],
+      'credentials' => ['Login Credentials', 'Change the campus email you log in with, or update your password.'],
+      'preferences' => ['Preferences', 'Tailor your catalog alerts, notification frequencies, and localization tools.'],
+      'profile'     => ['Edit Profile', 'Your name is shown to buyers and sellers you trade with.'],
+    ];
+    sf_page_band('Account', $bandTitles[$tab][0], $bandTitles[$tab][1]);
+  ?>
 
-  <main class="shop-wrapper">
-    <h1 class="shop-title">Account</h1>
-    <p class="shop-subtitle">Manage your buyer and seller activity, and account settings.</p>
+  <main class="shop-wrapper has-band">
 
     <div class="account-layout">
 
@@ -384,10 +395,10 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
         </div>
 
         <nav class="account-nav" aria-label="Account sections">
-          <a href="account.php"<?php echo $tab === 'buyer' ? ' class="active" aria-current="page"' : ''; ?>>Buyer Dashboard</a>
+          <a href="account.php"<?php echo $tab === 'buyer' ? ' class="active" aria-current="page"' : ''; ?>><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Buyer Dashboard</a>
           <?php if ($seller): ?>
-          <a href="account.php?tab=seller"<?php echo $tab === 'seller' ? ' class="active" aria-current="page"' : ''; ?>>Seller Dashboard</a>
-          <a href="account.php?tab=payouts"<?php echo $tab === 'payouts' ? ' class="active" aria-current="page"' : ''; ?>>Payouts &amp; Billing</a>
+          <a href="account.php?tab=seller"<?php echo $tab === 'seller' ? ' class="active" aria-current="page"' : ''; ?>><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M5 13v8h14v-8"/></svg>Seller Dashboard</a>
+          <a href="account.php?tab=payouts"<?php echo $tab === 'payouts' ? ' class="active" aria-current="page"' : ''; ?>><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="15" rx="2"/><path d="M16 12h3"/><path d="M2 9h20"/></svg>Payouts &amp; Billing</a>
           <?php else: ?>
           <?php if ($application && $application['status'] === 'pending'): ?>
           <span class="locked app-pending" title="An admin is reviewing your application">Application pending</span>
@@ -396,12 +407,12 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
           <?php else: ?>
           <a href="become_seller.php">Become a Seller <?php echo $icon['arrow']; ?></a>
           <?php endif; ?>
-          <span class="locked" title="Become a seller to unlock">Seller Dashboard <?php echo $icon['lock']; ?></span>
-          <span class="locked" title="Become a seller to unlock">Payouts &amp; Billing <?php echo $icon['lock']; ?></span>
+          <span class="locked" title="Become a seller to unlock"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M5 13v8h14v-8"/></svg>Seller Dashboard <?php echo $icon['lock']; ?></span>
+          <span class="locked" title="Become a seller to unlock"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="15" rx="2"/><path d="M16 12h3"/><path d="M2 9h20"/></svg>Payouts &amp; Billing <?php echo $icon['lock']; ?></span>
           <?php endif; ?>
           <div class="account-nav-label">Settings</div>
-          <a href="account.php?tab=credentials"<?php echo $tab === 'credentials' ? ' class="active" aria-current="page"' : ''; ?>>Login Credentials</a>
-          <a href="account.php?tab=preferences"<?php echo $tab === 'preferences' ? ' class="active" aria-current="page"' : ''; ?>>Preferences</a>
+          <a href="account.php?tab=credentials"<?php echo $tab === 'credentials' ? ' class="active" aria-current="page"' : ''; ?>><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 21 2"/><path d="m16 7 3 3"/><path d="m19 4 2 2"/></svg>Login Credentials</a>
+          <a href="account.php?tab=preferences"<?php echo $tab === 'preferences' ? ' class="active" aria-current="page"' : ''; ?>><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Preferences</a>
         </nav>
       </aside>
 
@@ -447,10 +458,10 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
         <?php endif; ?>
 
         <div class="stat-grid">
-          <div class="card stat-card"><div class="stat-value"><?php echo $stats['orders_year']; ?></div><div class="stat-label">Orders this year</div></div>
-          <div class="card stat-card"><div class="stat-value"><?php echo $stats['active_rentals']; ?></div><div class="stat-label">Active rentals</div></div>
-          <a href="favorites.php" class="card stat-card"><div class="stat-value"><?php echo $stats['saved']; ?></div><div class="stat-label">Saved items</div></a>
-          <a href="messages.php" class="card stat-card"><div class="stat-value"><?php echo $unread['messages']; ?></div><div class="stat-label">Unread messages</div></a>
+          <div class="card stat-card"><div class="stat-value"><?php echo $stats['orders_year']; ?></div><div class="stat-label">Orders this year</div><span class="stat-ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span></div>
+          <div class="card stat-card"><div class="stat-value"><?php echo $stats['active_rentals']; ?></div><div class="stat-label">Active rentals</div><span class="stat-ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 21 2"/><path d="m16 7 3 3"/><path d="m19 4 2 2"/></svg></span></div>
+          <a href="favorites.php" class="card stat-card"><div class="stat-value"><?php echo $stats['saved']; ?></div><div class="stat-label">Saved items</div><span class="stat-ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/></svg></span></a>
+          <a href="messages.php" class="card stat-card"><div class="stat-value"><?php echo $unread['messages']; ?></div><div class="stat-label">Unread messages</div><span class="stat-ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg></span></a>
         </div>
 
         <?php
@@ -566,12 +577,12 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
         </div>
 
         <div class="stat-grid">
-          <div class="card stat-card"><div class="stat-value"><?php echo count(array_filter($listings, fn($l) => $l['status'] === 'active')); ?></div><div class="stat-label">Active listings</div></div>
-          <div class="card stat-card"><div class="stat-value"><?php echo $toFulfill; ?></div><div class="stat-label">Orders to fulfill</div></div>
-          <div class="card stat-card"><div class="stat-value"><?php echo sf_peso($earned); ?></div><div class="stat-label">Total earnings</div></div>
+          <div class="card stat-card"><div class="stat-value"><?php echo count(array_filter($listings, fn($l) => $l['status'] === 'active')); ?></div><div class="stat-label">Active listings</div><span class="stat-ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M5 13v8h14v-8"/></svg></span></div>
+          <div class="card stat-card"><div class="stat-value"><?php echo $toFulfill; ?></div><div class="stat-label">Orders to fulfill</div><span class="stat-ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg></span></div>
+          <div class="card stat-card"><div class="stat-value"><?php echo sf_peso($earned); ?></div><div class="stat-label">Total earnings</div><span class="stat-ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="15" rx="2"/><path d="M16 12h3"/><path d="M2 9h20"/></svg></span></div>
           <div class="card stat-card">
             <div class="stat-value"><?php echo $sellerRating['count'] ? number_format($sellerRating['avg'], 1) . ' <span class="star-gold">★</span>' : '&mdash;'; ?></div>
-            <div class="stat-label">Average rating<?php echo $sellerRating['count'] ? ' (' . $sellerRating['count'] . ' review' . ($sellerRating['count'] === 1 ? '' : 's') . ')' : ' (no reviews yet)'; ?></div>
+            <div class="stat-label">Average rating<?php echo $sellerRating['count'] ? ' (' . $sellerRating['count'] . ' review' . ($sellerRating['count'] === 1 ? '' : 's') . ')' : ' (no reviews yet)'; ?></div><span class="stat-ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg></span>
           </div>
         </div>
 
@@ -964,6 +975,8 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
             <p class="section-sub">Your name is shown to buyers and sellers you trade with.</p>
           </div>
         </div>
+        <div class="profile-layout">
+        <div class="profile-main">
         <!-- Profile picture -->
         <div class="card settings-card avatar-card">
           <div class="avatar-preview"><?php echo sf_avatar_html($name, $user['avatar']); ?></div>
@@ -1057,6 +1070,53 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
           </form>
           <?php endif; ?>
         </div>
+        </div><!-- /.profile-main -->
+
+        <!-- Right side: how others see you (updates as you type) and what's left to fill in -->
+        <?php
+          $hasPhoto  = sf_avatar_url($user['avatar']) !== '';
+          $myRating  = sf_seller_rating($conn, $userId);
+          $checklist = [
+              'photo' => ['Profile photo', $hasPhoto, 'Buyers trust a real face.', '.avatar-card'],
+              'name'  => ['Full name', trim($v['full_name']) !== '', 'Shown instead of your username.', '#full_name'],
+              'bio'   => ['About me', trim($v['bio']) !== '', 'A line about you and where to meet.', '#bio'],
+              'id'    => ['ID verified', $idVerified, 'Needed to rent items.', '#verify'],
+          ];
+          $done = count(array_filter(array_column($checklist, 1)));
+        ?>
+        <aside class="profile-side">
+          <div class="card profile-preview" aria-label="How others see your profile">
+            <p class="preview-label">How others see you</p>
+            <div class="preview-avatar"><?php echo sf_avatar_html($name, $user['avatar']); ?></div>
+            <p class="preview-name" id="previewName"><?php echo $e($v['full_name'] !== '' ? $v['full_name'] : $v['username']); ?></p>
+            <p class="preview-username">@<span id="previewUsername"><?php echo $e($v['username']); ?></span></p>
+            <p class="preview-meta">
+              Joined <?php echo date('M Y', strtotime($user['created_at'])); ?>
+              <?php if ($myRating['count']): ?> · <span class="star-gold">★</span> <?php echo number_format($myRating['avg'], 1); ?> (<?php echo $myRating['count']; ?>)<?php endif; ?>
+              <?php if ($idVerified): ?> · <span class="preview-verified">✔ ID verified</span><?php endif; ?>
+            </p>
+            <p class="preview-bio<?php echo trim($v['bio']) === '' ? ' empty' : ''; ?>" id="previewBio"><?php echo trim($v['bio']) !== '' ? nl2br($e($v['bio'])) : 'No "About me" yet.'; ?></p>
+            <a href="profile.php?id=<?php echo (int) $userId; ?>" class="btn-outline full">View my public profile</a>
+          </div>
+
+          <div class="card profile-checklist">
+            <div class="checklist-head">
+              <p class="preview-label">Complete your profile</p>
+              <span class="checklist-count"><span id="checkDone"><?php echo $done; ?></span> of <?php echo count($checklist); ?></span>
+            </div>
+            <div class="checklist-bar" aria-hidden="true"><span id="checkBar" style="width: <?php echo round($done / count($checklist) * 100); ?>%"></span></div>
+            <ul>
+              <?php foreach ($checklist as $key => [$label, $ok, $why, $target]): ?>
+              <li class="<?php echo $ok ? 'done' : ''; ?>" data-check="<?php echo $key; ?>">
+                <span class="check-mark" aria-hidden="true"><?php echo $ok ? '✔' : ''; ?></span>
+                <span class="check-text"><strong><?php echo $label; ?></strong><small><?php echo $why; ?></small></span>
+                <?php if (!$ok): ?><button type="button" class="check-go" data-target="<?php echo $target; ?>">Add</button><?php endif; ?>
+              </li>
+              <?php endforeach; ?>
+            </ul>
+          </div>
+        </aside>
+        </div><!-- /.profile-layout -->
         <?php endif; ?>
       </section>
     </div>
@@ -1206,6 +1266,43 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
       if (error) { e.preventDefault(); document.getElementById('disputeError').textContent = error; }
     });
     document.getElementById('disputeModal').addEventListener('click', e => { if (e.target.id === 'disputeModal') e.target.close(); });
+
+    // Edit Profile: the preview on the right follows what's typed, and the checklist ticks along
+    (function () {
+      const fullName = document.getElementById('full_name');
+      const username = document.getElementById('username');
+      const bio = document.getElementById('bio');
+      const total = document.querySelectorAll('.profile-checklist li').length;
+      if (!fullName || !document.getElementById('previewName')) return;
+      const tick = (key, ok) => {
+        const item = document.querySelector('.profile-checklist li[data-check="' + key + '"]');
+        item.classList.toggle('done', ok);
+        item.querySelector('.check-mark').textContent = ok ? '✔' : '';
+        const go = item.querySelector('.check-go');
+        if (go) go.hidden = ok;
+      };
+      function update() {
+        const name = fullName.value.trim(), user = username.value.trim(), about = bio.value.trim();
+        document.getElementById('previewName').textContent = name || user || 'Your name';
+        document.getElementById('previewUsername').textContent = user;
+        const bioBox = document.getElementById('previewBio');
+        bioBox.textContent = about || 'No "About me" yet.';
+        bioBox.classList.toggle('empty', !about);
+        tick('name', name !== '');
+        tick('bio', about !== '');
+        const done = document.querySelectorAll('.profile-checklist li.done').length;
+        document.getElementById('checkDone').textContent = done;
+        document.getElementById('checkBar').style.width = Math.round(done / total * 100) + '%';
+      }
+      [fullName, username, bio].forEach(el => el.addEventListener('input', update));
+      // "Add": go to the field (or card) that fills it in
+      document.querySelectorAll('.check-go').forEach(btn => btn.addEventListener('click', () => {
+        const target = document.querySelector(btn.dataset.target);
+        if (!target) return;
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (target.matches('input, textarea')) setTimeout(() => target.focus({ preventScroll: true }), 300);
+      }));
+    })();
 
     // Rentals: return / refund request
     function openReturn(item, title) {

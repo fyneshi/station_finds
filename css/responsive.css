@@ -108,3 +108,18 @@
 body:has(> footer.footer) { min-height: 100vh; display: flex; flex-direction: column; }
 body:has(> footer.footer) > main { flex: 1 0 auto; width: 100%; }
 body:has(> footer.footer) > footer.footer { flex-shrink: 0; }
+
+/* ── A slimmer footer on every page (the page stylesheets each set a taller one; footer.footer wins) ── */
+footer.footer { padding: 28px 20px 16px; margin-top: 32px; }
+footer.footer .footer-top { gap: 24px; margin-bottom: 0; align-items: start; }
+footer.footer .footer-brand-col { align-self: center; }
+footer.footer .footer-emblem-badge, footer.footer .footer-emblem-img { width: 64px; height: 64px; }
+footer.footer .footer-heading { margin-bottom: 8px; }
+footer.footer .footer-links-list { gap: 5px; }
+footer.footer .footer-link, footer.footer .footer-text-item { font-size: 13px; }
+footer.footer .footer-divider { margin: 18px 0 12px; }
+footer.footer .footer-bottom p { margin: 0; }
+@media (max-width: 768px) {
+  footer.footer { padding: 22px 16px 14px; }
+  footer.footer .footer-top { gap: 16px; align-items: start; }
+}

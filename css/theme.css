@@ -1,0 +1,225 @@
+/* ==========================================================================
+   STATION FINDS — SITE THEME (loaded last on every buyer/seller page)
+   One look for the whole site: a dark header, a dark title band under it
+   with a gold glow (sf_page_band in includes/layout.php), a cool blue-grey
+   page, white cards without borders, soft grey fields and gold buttons.
+   It only restyles; the layouts stay in each page's own stylesheet.
+   ========================================================================== */
+:root {
+  --sf-ink: #16222a;          /* header, band, dark buttons */
+  --sf-gold: #e3a93a;
+  --sf-gold-grad: linear-gradient(135deg, #f3c860 0%, #dca233 100%);
+  --sf-field: #eef1f4;        /* inputs and selects */
+  --sf-row: #f6f3ed;          /* rows inside cards (orders, listings, payouts) */
+  --sf-line: #e4e9ee;
+  --sf-card-shadow: 0 1px 2px rgba(22, 34, 42, 0.04), 0 10px 28px rgba(22, 34, 42, 0.07);
+  /* The page stylesheets read these */
+  --bg-body: transparent;
+  --bg-input: var(--sf-field);
+  --border-light: var(--sf-line);
+  --primary-yellow: #e0a72f;
+  --primary-yellow-hover: #c98f1d;
+}
+
+html { background: #c9d5df; }
+body {
+  background: linear-gradient(165deg, #edf1f5 0%, #dfe6ed 45%, #c5d2dd 100%) fixed;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+.navbar { background: var(--sf-ink); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05); }
+.navbar .nav-link.active { color: var(--sf-gold); }
+.navbar .search-bar { background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); transition: background-color .15s ease, box-shadow .15s ease; }
+.navbar .search-bar:focus-within { background: rgba(255, 255, 255, 0.12); box-shadow: inset 0 0 0 1px rgba(227, 169, 58, 0.55); }
+.navbar .search-input { color: #ffffff; }
+.navbar .search-input::placeholder { color: #8d9aa5; }
+.navbar .search-icon { color: #8d9aa5; }
+
+/* ── The title band ── */
+.page-band { position: relative; overflow: hidden; isolation: isolate; color: #ffffff;
+  background: linear-gradient(100deg, #111b22 0%, #182832 55%, #1e3442 100%); }
+.page-band::before { content: ""; position: absolute; z-index: -1; right: -8%; top: -120%; width: 46%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(227, 169, 58, 0.55), rgba(227, 169, 58, 0.16) 60%, transparent); filter: blur(8px); }
+.page-band::after { content: ""; position: absolute; z-index: -1; inset: auto 0 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(227, 169, 58, 0.35), transparent); }
+.page-band-inner { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;
+  max-width: 1240px; margin: 0 auto; padding: 30px 24px 28px; }
+.page-band-eyebrow { margin: 0 0 6px; font-size: 11px; font-weight: 800; letter-spacing: .9px; text-transform: uppercase; color: var(--sf-gold); }
+.page-band-title { margin: 0; font-size: clamp(26px, 3vw, 34px); font-weight: 800; line-height: 1.15; letter-spacing: -0.6px; color: #ffffff; }
+.page-band-sub { margin: 8px 0 0; max-width: 640px; font-size: 14px; line-height: 1.55; color: #a3b1bc; }
+.page-band-sub:empty { display: none; }
+.page-band-sub strong { color: #ffffff; }
+.page-band-extra { flex-shrink: 0; }
+.page-band .results-count { display: inline-block; padding: 5px 12px; border-radius: 999px; background: rgba(227, 169, 58, 0.16); color: #f3c860; font-size: 12px; font-weight: 700; }
+.page-band .results-count:empty { display: none; }
+.page-band-title span { color: inherit; }
+/* The page under it needs less space on top */
+.page-band + main { padding-top: 26px !important; }
+.page-band + main .account-layout, .page-band + main .chat-layout { margin-top: 0; }
+
+/* ── Cards ── */
+.card, .panel, .settings-card, .pf-card, .overview-cat-card, .listing-card, .detail-card, .review-card, .report-card, .contact-card, .policy-nav,
+.favorite-card, .search-card, .chat-sidebar, .chat-main, .summary-card, .confirm-card, .inbox-empty {
+  border-color: transparent !important; border-radius: 16px; box-shadow: var(--sf-card-shadow);
+}
+.listing-card { overflow: hidden; }
+.listing-card:hover, .overview-cat-card:hover { box-shadow: 0 16px 34px rgba(22, 34, 42, 0.14); }
+
+/* ── Fields ── */
+input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="tel"], input[type="search"], input[type="date"], input[type="url"],
+select, textarea {
+  border-color: transparent; background-color: var(--sf-field); border-radius: 10px;
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="number"]:focus, input[type="tel"]:focus,
+input[type="date"]:focus, input[type="url"]:focus, select:focus, textarea:focus {
+  border-color: var(--sf-gold); background-color: #ffffff; box-shadow: 0 0 0 3px rgba(227, 169, 58, 0.18); outline: none;
+}
+.navbar input, .navbar input:focus { background: transparent; border: 0; box-shadow: none; }
+
+/* ── Buttons ── */
+.btn-primary, .btn-primary-full, .filter-btn-submit, .overview-cat-btn, .rent-submit, .btn-send, .pf-btn:not(.outline) {
+  background: var(--sf-gold-grad) !important; border-color: transparent !important; color: #1a242b !important;
+  box-shadow: 0 6px 16px rgba(220, 162, 51, 0.28); border-radius: 10px;
+}
+.btn-primary:hover:not(:disabled), .btn-primary-full:hover, .overview-cat-btn:hover, .rent-submit:hover, .btn-send:hover { filter: brightness(1.04); box-shadow: 0 10px 22px rgba(220, 162, 51, 0.36); }
+.btn-outline, .pf-btn.outline, .filter-btn-reset, .rent-cancel { background: #f3efe7; border-color: transparent !important; color: var(--sf-ink); border-radius: 10px; }
+.btn-outline:hover:not(:disabled) { background: #ebe5d9; }
+.btn-dark { background: var(--sf-ink); border-color: var(--sf-ink); border-radius: 10px; }
+
+/* ── Badges: soft fills instead of solid colours ── */
+.badge-product, .badge-rental { background: #fbefd2 !important; color: #a26b12 !important; }
+.badge-service, .badge-service-cat { background: #fbefd2; color: #a26b12; }
+.badge-available { background: #e3f4e8 !important; color: #1f7a43 !important; }
+.badge-condition, .badge-seller { background: #eef1f4; color: #55636e; }
+.status-badge { border-color: transparent !important; border-radius: 999px; }
+.status-badge.done { background: #e3f4e8; color: #1f7a43; }
+.status-badge.live { background: #fbefd2; color: #a26b12; }
+
+/* ── Account: sidebar ── */
+.account-sidebar { padding: 0 !important; background: transparent !important; box-shadow: none !important; }
+.account-sidebar .profile-block { margin: 0 0 18px; padding: 24px 18px 20px; border: 0; border-radius: 16px; background: #ffffff; box-shadow: var(--sf-card-shadow); }
+.account-nav { gap: 4px; }
+.account-nav a, .account-nav span.locked { display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 11px 14px; border: 0 !important; background: transparent; border-radius: 10px; color: #33414b; font-weight: 600; }
+.account-nav a:hover:not(.active) { background: rgba(255, 255, 255, 0.6); }
+.account-nav a.active { background: linear-gradient(90deg, #16222a 0%, #1d2c36 55%, #8b6a2b 100%) !important; color: #ffffff; box-shadow: 0 8px 18px rgba(22, 34, 42, 0.18); }
+.account-nav .nav-ico { flex-shrink: 0; color: #6b7a86; }
+.account-nav a.active .nav-ico { color: var(--sf-gold); }
+.account-nav-label { margin: 14px 2px 4px; color: #6b7a86; }
+.account-sidebar::after { content: "Manage your buyer and seller activity, and account settings."; display: block; margin: 18px 2px 0; font-size: 12px; line-height: 1.5; color: #6b7a86; }
+/* The open tab's heading is in the band now; keep the row only when it has a button */
+.has-band .section-head .section-title, .has-band .section-head .section-sub { display: none; }
+.has-band .section-head:not(:has(a, button)) { display: none; }
+.has-band .section-head { justify-content: flex-end; }
+
+/* ── Account: stat cards (the first one is dark) ── */
+.stat-card { position: relative; padding: 18px 18px 16px; }
+.stat-value { font-size: 26px; }
+.stat-ico { position: absolute; top: 16px; right: 16px; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: #f3efe7; color: #8a6a2b; }
+.stat-grid > .stat-card:first-child { background: linear-gradient(120deg, #16222a 0%, #1f303b 60%, #6d5629 100%); color: #ffffff; }
+.stat-grid > .stat-card:first-child .stat-label { color: #b7c3cc; }
+.stat-grid > .stat-card:first-child .stat-ico { background: rgba(227, 169, 58, 0.16); color: var(--sf-gold); }
+
+/* ── Rows inside cards (orders, rentals, listings, payouts) ── */
+.account-layout .row-item, .account-layout .listing-row, .account-layout .history-row {
+  margin-bottom: 10px; padding: 14px 16px; border: 0 !important; border-radius: 12px; background: var(--sf-row);
+}
+.account-layout .row-item:last-child, .account-layout .listing-row:last-child, .account-layout .history-row:last-child { margin-bottom: 0; }
+
+/* ── Marketplace ── */
+.tab-pills { gap: 4px; padding: 5px; border-radius: 14px; background: rgba(255, 255, 255, 0.7); box-shadow: var(--sf-card-shadow); }
+.tab-pill { border: 0; border-radius: 10px; padding: 9px 22px; color: #4c5a65; }
+.tab-pill:hover { color: var(--sf-ink); background: rgba(22, 34, 42, 0.05); }
+.tab-pill.active { background: var(--sf-ink); color: #ffffff; }
+.tab-pill.active::after { content: ""; display: inline-block; width: 5px; height: 5px; margin-left: 7px; border-radius: 50%; background: var(--sf-gold); vertical-align: middle; }
+/* The three category cards: dark, each with its own tint */
+.overview-cat-card { position: relative; overflow: hidden; isolation: isolate; color: #ffffff; }
+.overview-cat-card:nth-child(1) { background: linear-gradient(135deg, #1b2a36, #24394a) !important; }
+.overview-cat-card:nth-child(2) { background: linear-gradient(135deg, #17291f, #22402e) !important; }
+.overview-cat-card:nth-child(3) { background: linear-gradient(135deg, #2c1f14, #46301a) !important; }
+.overview-cat-card::before { content: ""; position: absolute; z-index: -1; top: -30%; right: 18%; width: 38%; aspect-ratio: 1; border-radius: 50%; background: rgba(255, 255, 255, 0.07); }
+.overview-cat-name { color: #ffffff; }
+.overview-cat-count { color: #b7c3cc; }
+.overview-cat-desc { color: #c3ccd3; }
+.overview-cat-icon { border: 0; border-radius: 12px; background: rgba(255, 255, 255, 0.1); color: var(--sf-gold); }
+
+/* ── Messages: own bubbles in gold ── */
+.msg.mine .msg-bubble { background: var(--sf-gold-grad); border-color: transparent; }
+
+/* ── Footer ── */
+footer.footer { background: #131d24; }
+
+@media (max-width: 760px) {
+  .page-band-inner { flex-direction: column; align-items: flex-start; padding: 22px 16px 20px; }
+  .page-band::before { width: 80%; top: -90%; right: -30%; }
+  .page-band + main { padding-top: 18px !important; }
+  .account-sidebar::after { display: none; }
+}
+
+/* ── Toolbars: sort and filter as white chips ── */
+.sort-select, .sort-dropdown, .filter-btn { background-color: #ffffff; border-color: transparent !important; border-radius: 10px; box-shadow: var(--sf-card-shadow); }
+.filter-pill-btn { border-color: transparent; background: #ffffff; box-shadow: var(--sf-card-shadow); }
+.filter-pill-btn.active { background: var(--sf-ink) !important; border-color: var(--sf-ink) !important; color: #ffffff !important; }
+
+/* ── Favorites: the type pills on the left, sort on the right, one row ── */
+.favorites-wrapper { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 16px; }
+.favorites-wrapper > * { grid-column: 1 / -1; }
+.favorites-wrapper > .filter-pills-row { grid-column: 1; grid-row: 1; margin: 0; }
+.favorites-wrapper > .favorites-header-row { grid-column: 2; grid-row: 1; margin: 0; }
+.favorites-wrapper > :nth-child(n+3) { margin-top: 22px; }
+
+/* ── Cart: the empty state's icon in a gold tile ── */
+.empty-cart > svg { box-sizing: content-box; padding: 16px; border-radius: 18px; background: var(--sf-gold-grad); color: #1a242b; box-shadow: 0 10px 22px rgba(220, 162, 51, 0.3); }
+
+/* ── Home: the category cards dark like the marketplace's ── */
+.category-card { position: relative; overflow: hidden; isolation: isolate; border-color: transparent !important; color: #ffffff; box-shadow: var(--sf-card-shadow); }
+.category-card:nth-child(1) { background: linear-gradient(135deg, #1b2a36, #24394a); }
+.category-card:nth-child(2) { background: linear-gradient(135deg, #17291f, #22402e); }
+.category-card:nth-child(3) { background: linear-gradient(135deg, #2c1f14, #46301a); }
+.category-card::before { content: ""; position: absolute; z-index: -1; top: -40%; right: 14%; width: 40%; aspect-ratio: 1; border-radius: 50%; background: rgba(255, 255, 255, 0.07); }
+.category-card .category-name { color: #ffffff; }
+.category-card .category-desc { color: #c3ccd3; }
+.category-card .category-count, .category-card:hover .category-count { background: var(--sf-gold); color: #1a242b; }
+.category-card .category-explore-link { color: var(--sf-gold); }
+
+/* ── Public profile: the header card is dark, with the name large ── */
+.pf-head { position: relative; overflow: hidden; isolation: isolate; background: linear-gradient(100deg, #111b22 0%, #182832 55%, #1e3442 100%) !important; color: #ffffff; padding: 30px 32px; }
+.pf-head::before { content: ""; position: absolute; z-index: -1; right: -10%; top: -80%; width: 50%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(227, 169, 58, 0.45), rgba(227, 169, 58, 0.12) 60%, transparent); }
+.pf-head h1 { font-size: clamp(28px, 3.4vw, 42px); font-weight: 800; letter-spacing: -0.8px; color: #ffffff; }
+.pf-head .pf-sub { color: #a3b1bc; }
+.pf-head .pf-bio { color: #d5dde3; }
+.pf-head .pf-tag { border-color: transparent; background: rgba(255, 255, 255, 0.1); color: #ffffff; }
+.pf-head .pf-tag.gold { background: #fbefd2; color: #8a5d0e; }
+.pf-head .pf-btn.outline { background: rgba(255, 255, 255, 0.1); color: #ffffff; }
+.pf-listing { border-color: transparent !important; border-radius: 14px; overflow: hidden; box-shadow: var(--sf-card-shadow); }
+
+/* ── Create a listing: type cards with an icon tile, photos beside the details ── */
+.type-card { border-color: transparent !important; border-radius: 14px; background: #ffffff; box-shadow: var(--sf-card-shadow); }
+.type-card:has(input:checked) { background: #fbefd2 !important; box-shadow: 0 0 0 1.5px var(--sf-gold), var(--sf-card-shadow) !important; }
+.type-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: #f3efe7; color: var(--sf-ink); }
+.type-card:has(input:checked) .type-icon { background: var(--sf-gold-grad); color: #1a242b; }
+.dropzone { border-radius: 14px; background: var(--sf-field); }
+@media (min-width: 1000px) {
+  .listing-form-card { display: grid; grid-template-columns: minmax(0, 1fr) 320px; column-gap: 28px; align-items: start; }
+  .listing-form-card > * { grid-column: 1; }
+  .listing-form-card > .form-field:has(.dropzone) { grid-column: 2; grid-row: 1 / span 4; }
+  .listing-form-card > .form-actions { grid-column: 1 / -1; }
+}
+
+/* ── Item pages: the buying panel is a white card ── */
+.breadcrumb-container { width: 100%; }
+.detail-info-col { padding: 26px 26px 24px; border-radius: 16px; background: #ffffff; box-shadow: var(--sf-card-shadow); align-self: start; }
+.detail-info-col .seller-card { border-color: transparent !important; background: var(--sf-row); box-shadow: none; }
+.detail-main-img-box { border-radius: 16px; overflow: hidden; box-shadow: var(--sf-card-shadow); }
+.btn-buy-now { background: var(--sf-gold-grad) !important; color: #1a242b !important; box-shadow: 0 6px 16px rgba(220, 162, 51, 0.28); }
+.btn-add-cart { border-color: transparent !important; background: #f3efe7 !important; }
+.badge-product, .detail-badges .badge-product { background: #fbefd2 !important; color: #a26b12 !important; }
+
+/* Fields inside forms lose their old outlines too */
+.form-field input, .form-field select, .form-field textarea, .settings-card input, .settings-card select, .settings-card textarea { border-color: transparent; background-color: var(--sf-field); }
+.form-field input:focus, .form-field select:focus, .form-field textarea:focus, .settings-card input:focus, .settings-card select:focus, .settings-card textarea:focus { border-color: var(--sf-gold); background-color: #ffffff; }
+
+/* ── Preferences: each switch in its own light row ── */
+.pref-list { display: flex; flex-direction: column; gap: 8px; }
+.pref-row { padding: 14px 16px !important; border: 0 !important; border-radius: 12px; background: var(--sf-row); }

@@ -253,10 +253,13 @@ function field($name, $label, $delivery, $errors, $opts = []) {
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=6" />
   <link rel="stylesheet" href="css/header.css?v=3" />
+  <link rel="stylesheet" href="css/responsive.css?v=3" />
+  <link rel="stylesheet" href="css/theme.css?v=1" />
 </head>
 <body>
 
   <?php sf_render_navbar($totals['count'], 'cart'); ?>
+  <?php if ($step !== 'done') sf_page_band('Campus marketplace', 'Checkout', 'Step ' . $step . ' of 3 &ndash; ' . $stepTitles[$step]); ?>
 
   <main class="shop-wrapper">
   <?php if ($step === 'done'): ?>
@@ -281,8 +284,6 @@ function field($name, $label, $delivery, $errors, $opts = []) {
 
   <?php else: ?>
 
-    <h1 class="shop-title">Checkout</h1>
-    <p class="shop-subtitle">Step <?php echo $step; ?> of 3 &ndash; <?php echo $stepTitles[$step]; ?></p>
 
     <!-- Stepper -->
     <nav class="stepper" aria-label="Checkout progress">

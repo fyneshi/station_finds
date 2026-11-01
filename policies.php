@@ -78,14 +78,15 @@ $e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
   <link rel="stylesheet" href="css/cart.css?v=6" />
   <link rel="stylesheet" href="css/about.css?v=3" />
   <link rel="stylesheet" href="css/header.css?v=3" />
-  <link rel="stylesheet" href="css/responsive.css?v=2" />
+  <link rel="stylesheet" href="css/responsive.css?v=3" />
+  <link rel="stylesheet" href="css/theme.css?v=1" />
 </head>
 <body>
 
   <?php sf_render_navbar(sf_cart_count($conn, $userId), 'policies'); ?>
+  <?php sf_page_band('Station Finds', 'Policies', 'How buying, renting, and booking on Station Finds works, and what we expect from everyone.'); ?>
 
   <main class="about-wrapper">
-    <h1 class="shop-title">Policies</h1>
 
     <div class="policy-layout">
       <nav class="card policy-nav" aria-label="Policies">

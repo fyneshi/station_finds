@@ -15,6 +15,26 @@ function sf_root_url($page) {
     return rtrim($dir, '/') . '/' . $page;
 }
 
+// ── Names (signup, Account › Edit Profile, admin Add / Edit User) ──
+// Full name: letters only, plus spaces and the . ' - in names like "Ma. Clara Dela Cruz-O'Neil"; no numbers.
+// Returns '' when it's fine (an empty name is fine unless $required), otherwise what to fix.
+function sf_full_name_error($name, $required = false) {
+    $name = (string) $name;
+    if ($name === '') return $required ? 'Enter the full name.' : '';
+    if (mb_strlen($name) < 2 || mb_strlen($name) > 100) return 'Use 2–100 characters.';
+    if (preg_match('/\p{N}/u', $name)) return 'Names can\'t contain numbers.';
+    if (!preg_match('/^\p{L}[\p{L}\p{M} .\'-]*$/u', $name)) return 'Use letters only (spaces, dots, apostrophes and dashes are fine).';
+    return '';
+}
+// Username: 3–50 letters, numbers, spaces, dots, dashes or underscores, starting with a letter,
+// so it can't be only numbers (numbers after a letter are fine, e.g. "yuuki1")
+function sf_username_error($username) {
+    $username = (string) $username;
+    if (!preg_match('/^[\p{L}\p{N} ._-]{3,50}$/u', $username)) return 'Use 3–50 letters, numbers, spaces, dots, dashes or underscores.';
+    if (!preg_match('/^\p{L}/u', $username)) return 'Start your username with a letter (it can\'t be only numbers).';
+    return '';
+}
+
 // A page to come back to after logging in (index.php?next=…): only this site's own buyer pages
 function sf_safe_next($next) {
     $next = trim((string) $next);

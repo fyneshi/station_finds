@@ -143,6 +143,19 @@ function sf_render_tabbar($active = '') {
     echo '</nav>';
 }
 
+// The dark title band under the header (styles: css/theme.css). $title and $extra are HTML;
+// $extra sits on the right (a count, a button)
+function sf_page_band($eyebrow, $title, $sub = '', $extra = '', $subId = '') {
+    $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+    echo '<header class="page-band"><div class="page-band-inner"><div class="page-band-text">'
+       . '<p class="page-band-eyebrow">' . $e($eyebrow) . '</p>'
+       . '<h1 class="page-band-title">' . $title . '</h1>';
+    if ($sub !== '' || $subId !== '') {
+        echo '<p class="page-band-sub"' . ($subId !== '' ? ' id="' . $e($subId) . '"' : '') . '>' . $sub . '</p>';
+    }
+    echo '</div>' . ($extra !== '' ? '<div class="page-band-extra">' . $extra . '</div>' : '') . '</div></header>';
+}
+
 function sf_render_footer() {
     ?>
   <footer class="footer">

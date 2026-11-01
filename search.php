@@ -87,23 +87,19 @@ $services_count = count(array_filter($items, fn($i) => $i['type'] === 'services'
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/search.css?v=5" />
   <link rel="stylesheet" href="css/header.css?v=3" />
-  <link rel="stylesheet" href="css/responsive.css?v=2" />
+  <link rel="stylesheet" href="css/responsive.css?v=3" />
+  <link rel="stylesheet" href="css/theme.css?v=1" />
 </head>
 <body>
 
   <!-- ==================== HEADER / NAVBAR ==================== -->
   <?php sf_render_navbar(sf_cart_count($conn, (int) ($_SESSION['user_id'] ?? 0)), 'market'); ?>
+  <?php ob_start(); ?><span id="displayedCount"><?php echo $total_count; ?></span> results<?php if ($search_query !== ''): ?> for "<strong class="search-query-tag"><?php echo htmlspecialchars($search_query); ?></strong>"<?php endif; ?><?php sf_page_band('Campus marketplace', 'Search results', ob_get_clean()); ?>
 
   <!-- ==================== MAIN SEARCH CONTENT ==================== -->
   <main class="search-wrapper">
     <!-- Header Row -->
     <div class="search-header-row">
-      <div>
-        <h1 class="search-title">Search results</h1>
-        <p class="search-subtitle">
-          <span id="displayedCount"><?php echo $total_count; ?></span> results<?php if ($search_query !== ''): ?> for "<strong class="search-query-tag"><?php echo htmlspecialchars($search_query); ?></strong>"<?php endif; ?>
-        </p>
-      </div>
 
       <!-- Sort Dropdown -->
       <div class="sort-select-wrapper">

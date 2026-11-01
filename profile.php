@@ -88,7 +88,8 @@ $csrf = sf_csrf_token();
   <link rel="stylesheet" href="css/cart.css?v=6" />
   <link rel="stylesheet" href="css/profile.css?v=3" />
   <link rel="stylesheet" href="css/header.css?v=3" />
-  <link rel="stylesheet" href="css/responsive.css?v=2" />
+  <link rel="stylesheet" href="css/responsive.css?v=3" />
+  <link rel="stylesheet" href="css/theme.css?v=1" />
 </head>
 <body>
 

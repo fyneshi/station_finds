@@ -73,17 +73,15 @@ $threadData = $partner ? sf_message_payloads($conn, $userId, $thread, $partner['
   <link rel="stylesheet" href="css/cart.css?v=6" />
   <link rel="stylesheet" href="css/inbox.css?v=6" />
   <link rel="stylesheet" href="css/header.css?v=3" />
-  <link rel="stylesheet" href="css/responsive.css?v=2" />
+  <link rel="stylesheet" href="css/responsive.css?v=3" />
+  <link rel="stylesheet" href="css/theme.css?v=1" />
 </head>
 <body>
 
   <?php sf_render_navbar(sf_cart_count($conn, $userId), 'messages'); ?>
+  <?php sf_page_band('Campus marketplace', 'Messages'); ?>
 
   <main class="inbox-wrapper">
-    <div class="inbox-head">
-      <h1 class="shop-title">Messages</h1>
-    </div>
-
     <div class="chat-layout<?php echo $withId ? ' has-chat' : ''; ?>">
 
       <!-- Conversation list -->

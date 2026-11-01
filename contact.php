@@ -81,15 +81,15 @@ $bad = fn($key) => isset($errors[$key]) ? ' has-error' : '';
   <link rel="stylesheet" href="css/cart.css?v=6" />
   <link rel="stylesheet" href="css/about.css?v=3" />
   <link rel="stylesheet" href="css/header.css?v=3" />
-  <link rel="stylesheet" href="css/responsive.css?v=2" />
+  <link rel="stylesheet" href="css/responsive.css?v=3" />
+  <link rel="stylesheet" href="css/theme.css?v=1" />
 </head>
 <body>
 
   <?php sf_render_navbar(sf_cart_count($conn, $userId), 'contact'); ?>
+  <?php sf_page_band('Station Finds', 'Contact us', 'Have inquiries about safety, verification, or partnerships? Our campus team is here.'); ?>
 
   <main class="about-wrapper">
-    <h1 class="shop-title">Contact us</h1>
-    <p class="shop-subtitle">Have inquiries about safety, verification, or partnerships? Our campus team is here.</p>
 
     <div class="contact-grid">
       <section class="card contact-card" aria-labelledby="officeTitle">

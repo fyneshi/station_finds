@@ -57,18 +57,16 @@ $e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
   <link rel="stylesheet" href="css/cart.css?v=6" />
   <link rel="stylesheet" href="css/inbox.css?v=6" />
   <link rel="stylesheet" href="css/header.css?v=3" />
-  <link rel="stylesheet" href="css/responsive.css?v=2" />
+  <link rel="stylesheet" href="css/responsive.css?v=3" />
+  <link rel="stylesheet" href="css/theme.css?v=1" />
 </head>
 <body>
 
   <?php sf_render_navbar(sf_cart_count($conn, $userId), 'notifications'); ?>
+  <?php sf_page_band('Account', 'Notifications', 'Stay up to date with your orders, messages, and account activity.'); ?>
 
   <main class="inbox-wrapper">
     <div class="inbox-head">
-      <div>
-        <h1 class="shop-title">Notifications</h1>
-        <p class="shop-subtitle">Stay up to date with your orders, messages, and account activity.</p>
-      </div>
       <?php if ($notifications): ?>
       <button type="button" class="link-btn" id="markAllBtn" onclick="markAllRead()"<?php echo $unreadCount ? '' : ' disabled'; ?>>Mark all as read</button>
       <?php endif; ?>

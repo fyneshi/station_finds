@@ -26,6 +26,19 @@ $picks   = $loc === '' ? array_slice($inStock, 0, 8, true) : $inStock;   // 4 sh
 $listingCounts = array_count_values(array_column($listings, 'type')) + ['products' => 0, 'rentals' => 0, 'services' => 0];
 $e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 
+// Hero banner: up to 5 featured listings (newest with a photo; products only while in stock)
+$allListings = sf_catalog();
+$heroFeatured = array_slice(array_values(array_filter($allListings, fn($item) => $item['image'] !== SF_PLACEHOLDER_IMAGE
+                    && ($item['type'] !== 'products' || $item['stock'] > 0))), 0, 5);
+// The second button is the next step for this visitor
+$isGuest     = empty($_SESSION['user_id']);
+if ($isGuest) {
+    $heroCta = ['index.php?mode=signup', 'Sign up free'];
+} else {
+    $sellerApp = $conn->query("SELECT status FROM seller_profiles WHERE user_id = " . (int) $_SESSION['user_id'])->fetch_assoc();
+    $heroCta   = ($sellerApp['status'] ?? '') === 'approved' ? ['listing_form.php', 'List an item'] : ['become_seller.php', 'Start selling'];
+}
+
 $username = $_SESSION['username'] ?? 'User';
 $email    = $_SESSION['email'] ?? '';
 // User initials for the top right avatar (e.g. "YO" or "MC")
@@ -41,9 +54,10 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/home.css?v=8" />
+  <link rel="stylesheet" href="css/home.css?v=30" />
   <link rel="stylesheet" href="css/header.css?v=3" />
-  <link rel="stylesheet" href="css/responsive.css?v=2" />
+  <link rel="stylesheet" href="css/responsive.css?v=3" />
+  <link rel="stylesheet" href="css/theme.css?v=1" />
   <script>
     // Home animations (js/home-motion.js): hide cards only when they'll be animated in.
     // If that script doesn't run, everything is shown after a moment anyway.
@@ -61,6 +75,61 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
   <!-- ==================== MAIN CONTENT ==================== -->
   <main class="main-wrapper">
     <div class="main-container">
+
+      <!-- Hero banner: black, three short lines and two buttons on the left; the Station Finds emblem (logo2.png) in 3D, lit gold, on the right -->
+      <section class="hero" aria-labelledby="heroTitle">
+        <div class="hero-art" aria-hidden="true">
+          <div class="hero-tilt" id="heroTilt">
+          <div class="hero-logo3d">
+            <?php // Real thickness: copies of the emblem stacked behind it in 3D, darker the further back they sit ?>
+            <?php for ($z = 16; $z >= 1; $z--): ?><img src="assets/images/logo2.png" alt="" class="hero-layer" style="--z: <?php echo $z; ?>" width="392" height="400" /><?php endfor; ?>
+            <img src="assets/images/logo2.png" alt="" class="hero-face" width="392" height="400" />
+            <span class="hero-shine"></span>
+          </div>
+          </div>
+        </div>
+
+        <div class="hero-content">
+          <div class="hero-text">
+            <h1 class="hero-title" id="heroTitle"><span>Buy Smarter.</span> <span>Rent Easier.</span> <span>Book Faster.</span></h1>
+            <p class="hero-sub">This isn't just a marketplace. This is Station Finds, where your classmates' things become your next great find.</p>
+            <div class="hero-actions">
+              <a href="marketplace.php" class="hero-btn primary">Explore Station Finds</a>
+              <a href="<?php echo $e($heroCta[0]); ?>" class="hero-btn secondary"><?php echo $e($heroCta[1]); ?></a>
+            </div>
+          </div>
+        </div>
+
+        <?php if ($heroFeatured): ?>
+        <!-- Featured listings, one at a time: slides to the next every few seconds (js/hero.js) -->
+        <div class="hero-feature" id="heroFeature" aria-roledescription="carousel" aria-label="Featured listings">
+          <div class="hero-feature-head">
+            <span class="hero-feature-label"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg> Featured</span>
+            <?php if (count($heroFeatured) > 1): ?>
+            <!-- One segment per listing: filled = seen, filling = showing now. Click one to jump to it -->
+            <span class="hero-feature-steps">
+              <?php foreach ($heroFeatured as $i => $item): ?>
+              <button type="button" class="hero-feature-step<?php echo $i === 0 ? ' is-current' : ''; ?>" aria-label="Show featured listing <?php echo $i + 1; ?> of <?php echo count($heroFeatured); ?>"><span></span></button>
+              <?php endforeach; ?>
+            </span>
+            <?php endif; ?>
+          </div>
+          <div class="hero-feature-stage">
+            <?php foreach ($heroFeatured as $i => $item): ?>
+            <a href="<?php echo $e($item['link']); ?>" class="hero-feature-item<?php echo $i === 0 ? ' is-active' : ''; ?>"<?php echo $i === 0 ? '' : ' tabindex="-1" aria-hidden="true"'; ?>>
+              <span class="hero-feature-thumb"><img src="<?php echo $e($item['image']); ?>" alt="" loading="lazy" /></span>
+              <span class="hero-feature-text">
+                <span class="hero-feature-type is-<?php echo $e($item['type']); ?>"><?php echo ['products' => 'For sale', 'rentals' => 'For rent', 'services' => 'Service'][$item['type']] ?? 'Listing'; ?></span>
+                <strong><?php echo $e($item['title']); ?></strong>
+                <span class="hero-feature-meta"><span class="hero-feature-price"><?php echo sf_price_html($item); ?></span> <span class="hero-feature-seller">by <?php echo $e($item['seller']); ?></span></span>
+              </span>
+              <span class="hero-feature-go" aria-hidden="true">&rarr;</span>
+            </a>
+            <?php endforeach; ?>
+          </div>
+        </div>
+        <?php endif; ?>
+      </section>
 
       <!-- Location filter: shows only listings in the chosen place -->
       <form method="get" action="home.php" class="location-filter">
@@ -255,6 +324,7 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
   <script src="js/cart.js?v=8"></script>
   <script src="js/inbox.js?v=5"></script>
   <script src="js/home-motion.js?v=2"></script>
+  <script src="js/hero.js?v=10"></script>
   <script>
     function toggleUserDropdown() {
       const dropdown = document.getElementById('userDropdown');

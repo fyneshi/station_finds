@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'status'    => $target['role'] !== 'admin' && ($_POST['status'] ?? '') === 'suspended' ? 'suspended' : ($target['role'] === 'admin' ? $target['status'] : 'active'),
         ];
         if ($editValues['role'] === 'admin') $editValues['status'] = 'active';
-        if (mb_strlen($editValues['full_name']) > 100) $editErrors['full_name'] = 'Up to 100 characters.';
+        if ($nameError = sf_full_name_error($editValues['full_name'])) $editErrors['full_name'] = $nameError;
         if (!filter_var($editValues['email'], FILTER_VALIDATE_EMAIL) || strlen($editValues['email']) > 255) $editErrors['email'] = 'Enter a valid email address.';
         if (!$editErrors) {
             $stmt = $conn->prepare("SELECT id FROM users WHERE email = ? AND id <> ?");
@@ -211,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'role'      => ($_POST['role'] ?? '') === 'admin' ? 'admin' : 'user',
             'status'    => ($_POST['status'] ?? '') === 'suspended' ? 'suspended' : 'active',
         ];
-        if (!preg_match('/^[\p{L}\p{N} .\'-]{2,100}$/u', $addValues['full_name'])) $addErrors['full_name'] = 'Enter their full name (2–100 letters).';
+        if ($nameError = sf_full_name_error($addValues['full_name'], true)) $addErrors['full_name'] = $nameError;
         if (!filter_var($addValues['email'], FILTER_VALIDATE_EMAIL) || strlen($addValues['email']) > 255) $addErrors['email'] = 'Enter a valid email address.';
         // Only a super admin can make admins (otherwise a limited admin could give themselves full access)
         if ($addValues['role'] === 'admin' && !sf_admin_access($conn)['full']) $addErrors['role'] = 'Only a super admin can create admin accounts.';

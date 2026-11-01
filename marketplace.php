@@ -245,28 +245,22 @@ function render_no_results(string $type) {
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/marketplace.css?v=11" />
   <link rel="stylesheet" href="css/header.css?v=3" />
-  <link rel="stylesheet" href="css/responsive.css?v=2" />
+  <link rel="stylesheet" href="css/responsive.css?v=3" />
+  <link rel="stylesheet" href="css/theme.css?v=1" />
 </head>
 <body>
 
   <!-- ==================== HEADER / NAVBAR ==================== -->
   <?php sf_render_navbar(sf_cart_count($conn, (int) ($_SESSION['user_id'] ?? 0)), 'market'); ?>
+  <?php sf_page_band('Campus marketplace', 'Marketplace', '', '<span class="results-count" id="resultsCount"></span>', 'marketplaceSubtitle'); ?>
 
   <!-- ==================== MAIN CONTENT ==================== -->
   <main class="main-wrapper">
     <div class="main-container">
 
-      <!-- Page Title Row -->
-      <div class="marketplace-header">
-        <div>
-          <h1 class="marketplace-title">Marketplace</h1>
-          <p class="marketplace-subtitle" id="marketplaceSubtitle"></p>
           <?php if ($loc !== ''): ?>
           <p class="location-chip">Showing listings in <strong><?php echo htmlspecialchars($locLabel, ENT_QUOTES, 'UTF-8'); ?></strong> &middot; <a href="marketplace.php">Show all locations</a></p>
           <?php endif; ?>
-        </div>
-        <span class="results-count" id="resultsCount"></span>
-      </div>
 
       <!-- ========== OVERVIEW SECTION (default landing) ========== -->
       <div id="view-overview" class="mp-view active">

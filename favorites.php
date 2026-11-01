@@ -63,7 +63,8 @@ $badgeLabels = [
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/favorites.css?v=5" />
   <link rel="stylesheet" href="css/header.css?v=3" />
-  <link rel="stylesheet" href="css/responsive.css?v=2" />
+  <link rel="stylesheet" href="css/responsive.css?v=3" />
+  <link rel="stylesheet" href="css/theme.css?v=1" />
   <style>
     /* Placeholder for saved items that have no photo (e.g. marketplace mockups) */
     .fav-img-placeholder {
@@ -98,16 +99,12 @@ $badgeLabels = [
 
   <!-- ==================== HEADER / NAVBAR ==================== -->
   <?php sf_render_navbar(sf_cart_count($conn, (int) ($_SESSION['user_id'] ?? 0)), ''); ?>
+  <?php sf_page_band('Campus marketplace', 'Favorites', 'Keep track of items you are considering'); ?>
 
   <!-- ==================== MAIN FAVORITES CONTENT ==================== -->
   <main class="favorites-wrapper">
     <!-- Header Row -->
     <div class="favorites-header-row">
-      <div>
-        <h1 class="favorites-title">FAVORITES</h1>
-        <p class="favorites-subtitle">Keep track of items you are considering</p>
-      </div>
-
       <!-- Sort Dropdown -->
       <div class="sort-select-wrapper">
         <select class="sort-select" id="sortSelect" onchange="handleSort(this.value)">

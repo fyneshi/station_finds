@@ -34,14 +34,15 @@ $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/cart.css?v=6" />
   <link rel="stylesheet" href="css/header.css?v=3" />
-  <link rel="stylesheet" href="css/responsive.css?v=2" />
+  <link rel="stylesheet" href="css/responsive.css?v=3" />
+  <link rel="stylesheet" href="css/theme.css?v=1" />
 </head>
 <body>
 
   <?php sf_render_navbar($totals['count'], 'cart'); ?>
+  <?php sf_page_band('Campus marketplace', 'Your cart &ndash; <span id="cartCountTitle">' . $totals['count'] . '</span> item<span id="cartCountPlural">' . ($totals['count'] == 1 ? '' : 's') . '</span>'); ?>
 
   <main class="shop-wrapper">
-    <h1 class="shop-title">Your cart &ndash; <span id="cartCountTitle"><?php echo $totals['count']; ?></span> item<span id="cartCountPlural"><?php echo $totals['count'] == 1 ? '' : 's'; ?></span></h1>
 
     <!-- Empty state (also shown after removing the last item) -->
     <div class="card empty-cart" id="emptyCart" style="margin-top: 24px;<?php echo $items ? ' display: none;' : ''; ?>">

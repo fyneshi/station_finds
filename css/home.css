@@ -857,3 +857,140 @@ html:not(.js-motion) .section-title::after { transform: scaleX(1); }
 .location-clear:hover { color: #1e293b; }
 .location-go { height: 34px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--primary-yellow); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+
+/* ==========================================================================
+   HERO BANNER (top of the home page): black and full width under the header.
+   Left: three short lines and two pill buttons. Right: the Station Finds logo in 3D,
+   lit gold, with a shine sweeping across it. Bottom right: the "Featured" card (js/hero.js moves it on).
+   ========================================================================== */
+.main-wrapper { overflow-x: clip; }   /* the banner reaches past the page's side padding */
+.hero {
+  position: relative; overflow: hidden; isolation: isolate; display: flex; align-items: center;
+  width: 100vw; margin: -24px 0 32px calc(50% - 50vw); min-height: clamp(380px, 31vw, 450px);
+  background: radial-gradient(28% 40% at 76% 42%, rgba(240, 140, 40, 0.16) 0%, rgba(240, 140, 40, 0) 100%), radial-gradient(60% 80% at 72% 55%, #12171b 0%, #060708 70%), #060708; color: #ffffff;
+}
+/* Fade the art into the black on the left, so the words sit on clean black */
+.hero::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, #060708 0%, rgba(6, 7, 8, 0.92) 30%, rgba(6, 7, 8, 0.2) 55%, rgba(6, 7, 8, 0) 70%); }
+
+/* ── The emblem in 3D (assets/images/logo2.png): a real solid. 16 copies sit behind the front one,
+   3.5px apart in depth and darker the further back, so its edge shows as it turns. It sways, follows
+   the mouse, casts a shadow on the "floor", and a shine sweeps its face. ── */
+.hero-art { position: absolute; z-index: -2; right: 6%; top: 39%; width: 42%; height: 100%; transform: translateY(-50%);
+  display: grid; place-items: center; perspective: 700px; perspective-origin: 50% 40%; pointer-events: none; }
+/* The gold light behind it */
+.hero-art::before { content: ""; position: absolute; width: 80%; aspect-ratio: 1 / 1; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(246, 183, 60, 0.34), rgba(240, 130, 40, 0.12) 55%, transparent);
+  filter: blur(30px); animation: logo-light 6s ease-in-out infinite alternate; }
+@keyframes logo-light { from { opacity: .75; transform: scale(.96); } to { opacity: 1; transform: scale(1.05); } }
+/* Its shadow on the floor: grows and fades as it rises */
+.hero-art::after { content: ""; position: absolute; left: 50%; bottom: 9%; width: 52%; height: 34px; margin-left: -26%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.85), transparent); filter: blur(6px); animation: logo-floor 7s ease-in-out infinite alternate; }
+@keyframes logo-floor { from { transform: scale(1); opacity: .9; } to { transform: scale(.82); opacity: .55; } }
+
+/* The mouse tilt (js/hero.js sets --tx / --ty), on its own layer so it adds to the turning below */
+.hero-tilt { --tx: 0deg; --ty: 0deg; display: grid; place-items: center; width: 100%; transform-style: preserve-3d;
+  transform: rotateX(var(--ty)) rotateY(var(--tx)); transition: transform .35s ease-out; }
+.hero-logo3d { position: relative; width: 100%; max-width: 280px; aspect-ratio: 392 / 400; transform-style: preserve-3d;
+  animation: logo-turn 6s ease-in-out infinite alternate; }
+.hero-logo3d img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; -webkit-user-drag: none; }
+.hero-layer { transform: translateZ(calc(var(--z) * -3.5px)); filter: brightness(calc(0.58 - var(--z) * 0.024)) saturate(.55); }
+.hero-face { transform: translateZ(1px); filter: drop-shadow(0 0 18px rgba(246, 183, 60, 0.22)); }
+/* Turning back and forth, and rising a little */
+@keyframes logo-turn {
+  0%   { transform: translateY(6px)   rotateX(16deg) rotateY(-42deg) rotateZ(-5deg); }
+  100% { transform: translateY(-16px) rotateX(6deg)  rotateY(26deg)  rotateZ(2deg); }
+}
+/* The shine: a bright band sliding across the face only (the emblem used as a mask) */
+.hero-shine { position: absolute; inset: 0; transform: translateZ(2px); pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 244, 214, 0.75) 48%, rgba(255, 255, 255, 0.95) 50%, rgba(255, 244, 214, 0.75) 52%, transparent 65%);
+  background-size: 300% 100%; background-repeat: no-repeat; mix-blend-mode: soft-light;
+  -webkit-mask: url('../assets/images/logo2.png') center / 100% 100% no-repeat; mask: url('../assets/images/logo2.png') center / 100% 100% no-repeat;
+  animation: logo-shine 5s ease-in-out infinite; }
+@keyframes logo-shine { 0% { background-position: 150% 0; } 55%, 100% { background-position: -50% 0; } }
+
+/* ── Left: words and buttons ── */
+.hero-content { position: relative; width: 100%; max-width: var(--sf-page, 1240px); margin: 0 auto; padding: 40px 24px; }
+.hero-text { max-width: 520px; }
+.hero-text > * { animation: hero-in .8s cubic-bezier(.2, .8, .2, 1) both; }
+.hero-text > :nth-child(2) { animation-delay: .12s; }
+.hero-text > :nth-child(3) { animation-delay: .22s; }
+@keyframes hero-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.hero-title { margin: 0 0 14px; font-size: clamp(36px, 4.4vw, 60px); font-weight: 600; line-height: 1.06; letter-spacing: -0.035em; }
+.hero-title span { display: block; }
+.hero-sub { max-width: 420px; margin: 0 0 24px; font-size: 15.5px; line-height: 1.6; color: #a7afb6; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.hero-btn { display: inline-flex; align-items: center; justify-content: center; height: 50px; padding: 0 28px; border-radius: 999px;
+  font-size: 14.5px; font-weight: 600; text-decoration: none; transition: transform .15s ease, background-color .15s ease, border-color .15s ease, color .15s ease; }
+.hero-btn.primary { background: #ffffff; color: #060708; }
+.hero-btn.primary:hover { transform: translateY(-2px); }
+.hero-btn.secondary { border: 1px solid rgba(255, 255, 255, 0.22); background: #060708; color: #ffffff; }
+.hero-btn.secondary:hover { border-color: #f6b73c; color: #f6b73c; }
+.hero-btn:focus-visible { outline: 2px solid #f6b73c; outline-offset: 3px; }
+
+/* ── Bottom right: the "Featured" card. A header (label + one segment per listing, the current one
+   filling up like a story) over the listing, which slides to the next (js/hero.js) ── */
+.hero-feature { position: absolute; right: max(24px, calc((100vw - var(--sf-page, 1240px)) / 2 + 24px)); bottom: 22px; z-index: 2;
+  width: 340px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px;
+  background: linear-gradient(180deg, rgba(22, 26, 30, 0.82), rgba(10, 12, 14, 0.82)); backdrop-filter: blur(12px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: border-color .2s ease, transform .2s ease; animation: hero-in .8s .35s cubic-bezier(.2, .8, .2, 1) both; }
+.hero-feature:hover { border-color: rgba(246, 183, 60, 0.35); }
+.hero-feature-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 14px 0; }
+.hero-feature-label { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: #f6b73c; }
+.hero-feature-steps { display: flex; gap: 4px; flex: 1; max-width: 150px; }
+.hero-feature-step { flex: 1; height: 14px; padding: 0; border: 0; background: none; cursor: pointer; display: flex; align-items: center; }
+.hero-feature-step span { position: relative; display: block; width: 100%; height: 3px; overflow: hidden; border-radius: 3px; background: rgba(255, 255, 255, 0.14); }
+.hero-feature-step span::after { content: ""; position: absolute; inset: 0; width: 0; border-radius: inherit; background: #f6b73c; }
+.hero-feature-step.is-done span::after { width: 100%; background: rgba(246, 183, 60, 0.55); }
+.hero-feature-step.is-current span::after { width: 100%; }
+.hero-feature.is-running .hero-feature-step.is-current span::after { animation: feature-progress 3.5s linear forwards; }   /* 3.5s, the same as js/hero.js */
+.hero-feature-step:hover span { background: rgba(255, 255, 255, 0.28); }
+.hero-feature-step:focus-visible { outline: 2px solid #f6b73c; outline-offset: 2px; border-radius: 3px; }
+@keyframes feature-progress { from { width: 0; } to { width: 100%; } }
+
+.hero-feature-stage { position: relative; height: 78px; }
+.hero-feature-item { position: absolute; inset: 0; display: flex; align-items: center; gap: 13px; padding: 6px 14px 10px 12px; color: #ffffff; text-decoration: none;
+  opacity: 0; transform: translateX(24px); pointer-events: none; transition: opacity .5s ease, transform .55s cubic-bezier(.2, .8, .2, 1); }
+.hero-feature-item.is-active { opacity: 1; transform: none; pointer-events: auto; }
+.hero-feature-item.is-leaving { opacity: 0; transform: translateX(-24px); }
+/* The photo zooms in slowly while it's shown */
+.hero-feature-thumb { width: 60px; height: 60px; flex-shrink: 0; overflow: hidden; border-radius: 12px; background: #f3eee4; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.hero-feature-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; transform: scale(1.12); transition: transform 3.8s ease-out; }
+.hero-feature-item.is-active .hero-feature-thumb img { transform: scale(1); }
+.hero-feature-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.hero-feature-type { align-self: flex-start; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .3px;
+  background: rgba(255, 255, 255, 0.08); color: #c4ccd2; }
+.hero-feature-type.is-products { background: rgba(74, 222, 128, 0.12); color: #86efac; }
+.hero-feature-type.is-rentals  { background: rgba(96, 165, 250, 0.14); color: #93c5fd; }
+.hero-feature-type.is-services { background: rgba(192, 132, 252, 0.14); color: #d8b4fe; }
+.hero-feature-text strong { overflow: hidden; font-size: 14.5px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
+.hero-feature-meta { display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap; }
+.hero-feature-price { font-size: 13.5px; font-weight: 700; color: #ffffff; }
+.hero-feature-price .price-unit { color: #87929a; font-weight: 500; }
+.hero-feature-seller { overflow: hidden; font-size: 12px; color: #87929a; text-overflow: ellipsis; }
+.hero-feature-go { flex-shrink: 0; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(255, 255, 255, 0.08);
+  color: #ffffff; font-size: 15px; transition: background-color .15s ease, color .15s ease, transform .15s ease; }
+.hero-feature-item:hover .hero-feature-go { background: #f6b73c; color: #060708; transform: translateX(2px); }
+.hero-feature-item:focus-visible { outline: 2px solid #f6b73c; outline-offset: -2px; border-radius: 16px; }
+
+@media (max-width: 900px) {
+  .hero { flex-direction: column; align-items: stretch; min-height: 0; }
+  .hero-art { position: relative; z-index: 0; right: auto; top: auto; width: auto; height: 190px; margin: 12px 20px -12px; transform: none; }
+  .hero-logo3d { max-width: 150px; }
+  .hero::after { display: none; }
+  .hero-content { padding: 20px 20px 20px; }
+  .hero-feature { position: relative; right: auto; bottom: auto; width: auto; margin: 0 20px 28px; }
+  .hero-feature-steps { max-width: 120px; }
+}
+@media (max-width: 560px) {
+  .hero-content { padding: 24px 16px 18px; }
+  .hero-btn { flex: 1 1 auto; height: 48px; }
+  .hero-feature { margin: 0 16px 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-art::before, .hero-art::after, .hero-logo3d, .hero-shine, .hero-text > *, .hero-feature { animation: none; }
+  .hero-logo3d { transform: rotateX(10deg) rotateY(-24deg); }
+  .hero-feature-item { transition: none; }
+}

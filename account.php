@@ -362,7 +362,8 @@ $pageTitles = ['buyer' => 'Buyer Dashboard', 'seller' => 'Seller Dashboard', 'pa
   <link rel="stylesheet" href="css/account.css?v=23" />
   <link rel="stylesheet" href="css/header.css?v=3" />
   <link rel="stylesheet" href="css/responsive.css?v=3" />
-  <link rel="stylesheet" href="css/theme.css?v=1" />
+  <link rel="stylesheet" href="css/theme.css?v=2" />
+  <script src="js/motion.js?v=1" defer></script>
 </head>
 <body>
 

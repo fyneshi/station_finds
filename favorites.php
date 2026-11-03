@@ -64,7 +64,8 @@ $badgeLabels = [
   <link rel="stylesheet" href="css/favorites.css?v=5" />
   <link rel="stylesheet" href="css/header.css?v=3" />
   <link rel="stylesheet" href="css/responsive.css?v=3" />
-  <link rel="stylesheet" href="css/theme.css?v=1" />
+  <link rel="stylesheet" href="css/theme.css?v=2" />
+  <script src="js/motion.js?v=1" defer></script>
   <style>
     /* Placeholder for saved items that have no photo (e.g. marketplace mockups) */
     .fav-img-placeholder {

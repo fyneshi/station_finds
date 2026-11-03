@@ -57,7 +57,8 @@ $initials = !empty($username) ? strtoupper(substr($username, 0, 2)) : 'MC';
   <link rel="stylesheet" href="css/home.css?v=30" />
   <link rel="stylesheet" href="css/header.css?v=3" />
   <link rel="stylesheet" href="css/responsive.css?v=3" />
-  <link rel="stylesheet" href="css/theme.css?v=1" />
+  <link rel="stylesheet" href="css/theme.css?v=2" />
+  <script src="js/motion.js?v=1" defer></script>
   <script>
     // Home animations (js/home-motion.js): hide cards only when they'll be animated in.
     // If that script doesn't run, everything is shown after a moment anyway.

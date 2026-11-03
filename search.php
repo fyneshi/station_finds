@@ -88,7 +88,8 @@ $services_count = count(array_filter($items, fn($i) => $i['type'] === 'services'
   <link rel="stylesheet" href="css/search.css?v=5" />
   <link rel="stylesheet" href="css/header.css?v=3" />
   <link rel="stylesheet" href="css/responsive.css?v=3" />
-  <link rel="stylesheet" href="css/theme.css?v=1" />
+  <link rel="stylesheet" href="css/theme.css?v=2" />
+  <script src="js/motion.js?v=1" defer></script>
 </head>
 <body>
 

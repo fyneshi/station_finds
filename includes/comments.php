@@ -8,6 +8,7 @@ require_once __DIR__ . '/reports.php';   // SF_REPORT_REASONS for the "Report co
 
 const SF_COMMENT_MAX     = 1000;   // characters per comment
 const SF_COMMENTS_PER_HR = 20;     // comments one user can post in an hour
+const SF_COMMENTS_SHOWN  = 2;     // questions shown before "View all"
 
 // Questions, newest first, each with its replies (oldest first)
 function sf_listing_comments($conn, $listingId) {
@@ -169,8 +170,14 @@ function sf_render_comments(array $item, array $comments, $pageLink, $csrf, $err
 
           <div class="comments-list">
             <?php if (!$comments): ?><p class="comments-empty"><?php echo $e($emptyText); ?></p><?php endif; ?>
-            <?php foreach ($comments as $q): $qid = (int) $q['id']; $open = $draft['parent'] === $qid; ?>
-            <div class="comment-item" id="comment-<?php echo $qid; ?>">
+            <?php
+              // Only the newest few show at first (like Shopee); "View all" shows the rest.
+              // A reply that failed to post stays visible so its error can be seen.
+              $total   = count($comments);
+              $showAll = $draft['parent'] && array_search($draft['parent'], array_map('intval', array_column($comments, 'id'))) >= SF_COMMENTS_SHOWN;
+            ?>
+            <?php foreach ($comments as $i => $q): $qid = (int) $q['id']; $open = $draft['parent'] === $qid; $extra = $i >= SF_COMMENTS_SHOWN; ?>
+            <div class="comment-item<?php echo $extra ? ' comment-extra' : ''; ?>" id="comment-<?php echo $qid; ?>"<?php echo $extra && !$showAll ? ' hidden' : ''; ?>>
               <?php $person($q); ?>
               <button type="button" class="comment-reply-btn" aria-expanded="<?php echo $open ? 'true' : 'false'; ?>" aria-controls="reply-<?php echo $qid; ?>" onclick="toggleReply(this)">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
@@ -206,8 +213,23 @@ function sf_render_comments(array $item, array $comments, $pageLink, $csrf, $err
             </div>
             <?php endforeach; ?>
           </div>
+          <?php if ($total > SF_COMMENTS_SHOWN): ?>
+          <button type="button" class="comments-view-all" id="commentsViewAll" aria-expanded="<?php echo $showAll ? 'true' : 'false'; ?>" data-label="View All" aria-label="View all <?php echo $total; ?> comments" onclick="toggleAllComments(this)">
+            <span><?php echo $showAll ? 'Show Less' : 'View All'; ?></span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"></polyline></svg>
+          </button>
+          <?php endif; ?>
         </section>
         <script>
+          // Show every comment, or go back to the newest few (show = true/false, or leave it out to flip)
+          function toggleAllComments(btn, show) {
+            if (!btn) return;
+            if (show === undefined) show = btn.getAttribute('aria-expanded') !== 'true';
+            document.querySelectorAll('#comments .comment-extra').forEach(el => { el.hidden = !show; });
+            btn.setAttribute('aria-expanded', String(show));
+            btn.querySelector('span').textContent = show ? 'Show Less' : btn.dataset.label;
+            if (!show) document.getElementById('comments').scrollIntoView({ block: 'start' });
+          }
           // Show or hide the reply box under a question
           function toggleReply(btn) {
             const form = document.getElementById(btn.getAttribute('aria-controls'));
@@ -245,8 +267,9 @@ function sf_render_comments(array $item, array $comments, $pageLink, $csrf, $err
             const target = location.hash.startsWith('#comment-') && document.getElementById(location.hash.slice(1));
             if (!target) return;
             const item = target.closest('.comment-item');
+            if (item && item.hidden) toggleAllComments(document.getElementById('commentsViewAll'), true);
             const toggle = item && item.querySelector(':scope > .comment-replies-toggle');
-            if (!toggle) return;
+            if (!toggle) { if (item) item.scrollIntoView({ block: 'center' }); return; }
             toggleReplies(toggle, true);
             target.scrollIntoView({ block: 'center' });
           }

@@ -352,7 +352,7 @@ function sf_admin_shell_start($active, $searchPlaceholder = null) {
       </nav>
     </aside>
 
-    <div class="adm-main">
+    <div class="adm-main adm-enter">
       <header class="adm-topbar">
         <button type="button" class="adm-menu-toggle" id="admMenuToggle" aria-label="Open menu" aria-controls="admSidebar" aria-expanded="false"><?php echo $icon('<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>'); ?></button>
         <?php if ($searchPlaceholder): ?>
@@ -423,6 +423,7 @@ function sf_admin_shell_end() {
     ?>
     </div>
   </div>
+  <script src="js/admin-motion.js?v=1"></script>
   <script>
     // Phones: the menu button opens the sidebar
     (function () {

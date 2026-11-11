@@ -292,11 +292,32 @@ footer.footer { background: #131d24; }
 .listing-card .card-img, .search-card .card-img, .fav-card .card-img { transition: transform .5s var(--sf-ease-out); }
 .overview-cat-card:hover { transform: translateY(-4px); }
 
+/* Item pages have no title band: the photo and the buying panel rise in instead */
+.detail-main-img-box { animation: sf-band-in .55s var(--sf-ease-out) backwards; }
+.detail-info-col { animation: sf-band-in .55s var(--sf-ease-out) .08s backwards; }
+
+/* Pop-ups (rate, cancel, rent, book, report, log-in prompt) rise in over a fading backdrop */
+@keyframes sf-modal-in { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes sf-bump { 0% { transform: scale(1); } 35% { transform: scale(1.45); } 100% { transform: scale(1); } }
+dialog.rate-modal[open], dialog.rent-modal[open], dialog.sf-report[open], dialog.sf-guest-modal[open] { animation: sf-modal-in .25s var(--sf-ease-out); }
+dialog.rate-modal[open]::backdrop, dialog.rent-modal[open]::backdrop, dialog.sf-report[open]::backdrop, dialog.sf-guest-modal[open]::backdrop { animation: sf-page-in .2s ease; }
+
+/* The cart badge bounces when its count changes (js/cart.js); hearts give when pressed */
+.navbar .cart-badge.sf-bump { animation: sf-bump .45s var(--sf-ease-out); }
+.card-fav-btn, .card-favorite-btn { transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), background-color .15s ease, color .15s ease; }
+.card-fav-btn:hover, .card-favorite-btn:hover { transform: scale(1.12); }
+.card-fav-btn:active, .card-favorite-btn:active { transform: scale(.85); }
+.footer-link, .footer-heading-link { transition: color .15s ease; }
+
 /* Jumps to a section on the same page glide there */
 html { scroll-behavior: smooth; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  .detail-main-img-box, .detail-info-col, .navbar .cart-badge.sf-bump,
+  dialog.rate-modal[open], dialog.rent-modal[open], dialog.sf-report[open], dialog.sf-guest-modal[open],
+  dialog.rate-modal[open]::backdrop, dialog.rent-modal[open]::backdrop, dialog.sf-report[open]::backdrop, dialog.sf-guest-modal[open]::backdrop { animation: none !important; }
+  .card-fav-btn:hover, .card-favorite-btn:hover, .card-fav-btn:active, .card-favorite-btn:active { transform: none; }
   .page-band-inner > *, .page-band::before, .page-band + main, .sf-reveal.is-in, .comment-extra:not([hidden]),
   .navbar .user-dropdown.show, .navbar .sf-bell-panel:not([hidden]), .navbar .sf-cart-panel:not([hidden]), .comment-menu:not([hidden]),
   .reply-form:not([hidden]), .comment-replies:not([hidden]) { animation: none !important; }

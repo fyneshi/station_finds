@@ -62,7 +62,7 @@ $when      = fn($ts) => date('M j, Y', $ts);
   <link rel="stylesheet" href="css/detail.css?v=16" />
   <link rel="stylesheet" href="css/header.css?v=3" />
   <link rel="stylesheet" href="css/responsive.css?v=3" />
-  <link rel="stylesheet" href="css/theme.css?v=2" />
+  <link rel="stylesheet" href="css/theme.css?v=3" />
   <script src="js/motion.js?v=1" defer></script>
 </head>
 <body>
@@ -331,7 +331,7 @@ $when      = fn($ts) => date('M j, Y', $ts);
     </form>
   </dialog>
 
-  <script src="js/cart.js?v=8"></script>
+  <script src="js/cart.js?v=9"></script>
   <script src="js/inbox.js?v=5"></script>
   <script src="js/report.js?v=3"></script>
   <script>

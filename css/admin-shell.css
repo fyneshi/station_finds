@@ -57,8 +57,10 @@ a.adm-nav-item:hover { background: #27363f; color: #fff; }
 
 @media (max-width: 860px) {
   .adm-shell { display: block; }
-  .adm-sidebar { display: none; position: fixed; top: 70px; left: 0; z-index: 100; height: calc(100dvh - 70px); box-shadow: 6px 0 20px rgba(0, 0, 0, .3); }
-  .adm-sidebar.is-open { display: block; }
+  /* Slides in from the left; hidden from the keyboard and screen readers while it is away */
+  .adm-sidebar { position: fixed; top: 70px; left: 0; z-index: 100; height: calc(100dvh - 70px); box-shadow: 6px 0 20px rgba(0, 0, 0, .3);
+    transform: translateX(-102%); visibility: hidden; transition: transform .28s cubic-bezier(.22, 1, .36, 1), visibility 0s .28s; }
+  .adm-sidebar.is-open { transform: none; visibility: visible; transition-delay: 0s; }
   .adm-menu-toggle { display: grid; }
   .adm-topbar { padding: 0 14px; gap: 10px; }
   .adm-search { flex: 1; }
@@ -106,3 +108,102 @@ a.adm-nav-item:hover { background: #27363f; color: #fff; }
 .bell-see-all { display: block; margin: 0 8px 8px; padding: 10px; border-radius: 8px; background: #f1ece2; color: #18252d; font-size: 14px; font-weight: 700; text-align: center; text-decoration: none; }
 .bell-see-all:hover { background: #e9e1d2; }
 @media (max-width: 560px) { .adm-bell-panel { position: fixed; top: 64px; right: 12px; left: 12px; width: auto; } }
+
+/* ==========================================================================
+   MOTION (js/admin-motion.js): the same feel as the shop pages (css/theme.css).
+   Moving between admin pages cross-fades while the sidebar and top bar stay put;
+   the page title, stat cards and rows come in one after another; stat numbers
+   count up; pop-ups and the bell panel open softly; buttons give when pressed.
+   Everything here switches off for people who ask for reduced motion.
+   ========================================================================== */
+:root { --adm-ease-out: cubic-bezier(.22, 1, .36, 1); --adm-ease-spring: cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes adm-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes adm-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes adm-row { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes adm-drop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes adm-menu { from { opacity: 0; transform: translateY(-6px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes adm-modal { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes adm-pop { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes adm-bar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+/* Moving between admin pages (Chrome/Edge): only the page area changes */
+@view-transition { navigation: auto; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .22s; animation-timing-function: ease; }
+.adm-sidebar { view-transition-name: adm-sidebar; }
+.adm-topbar { view-transition-name: adm-topbar; }
+
+/* Page entrance. .adm-enter is on the page for its first moments only (js/admin-motion.js takes it off),
+   so rows that a search or filter brings back later just appear. */
+.adm-enter .dashboard-header .header-title-group { animation: adm-rise .5s var(--adm-ease-out) backwards; }
+.adm-enter .dashboard-header .header-actions { animation: adm-fade .5s ease .1s backwards; }
+.adm-enter .dashboard-content, .adm-enter .shop-wrapper { animation: adm-fade .4s ease .05s backwards; }
+.adm-enter .stats-grid > *, .adm-enter .settings-card, .adm-enter .report-card, .adm-enter .recent-listing,
+.adm-enter .health-card, .adm-enter .notif-row, .adm-enter .promo-grid > * {
+  animation: adm-rise .5s var(--adm-ease-out) calc(.08s + var(--adm-i, 0) * 60ms) backwards;
+}
+.adm-enter :is(.users-table, .activity-table) tbody tr { animation: adm-row .4s var(--adm-ease-out) calc(.15s + var(--adm-i, 10) * 30ms) backwards; }
+.adm-enter :nth-child(1) { --adm-i: 0; }
+.adm-enter :nth-child(2) { --adm-i: 1; }
+.adm-enter :nth-child(3) { --adm-i: 2; }
+.adm-enter :nth-child(4) { --adm-i: 3; }
+.adm-enter :nth-child(5) { --adm-i: 4; }
+.adm-enter :nth-child(6) { --adm-i: 5; }
+.adm-enter :nth-child(7) { --adm-i: 6; }
+.adm-enter :nth-child(8) { --adm-i: 7; }
+.adm-enter :nth-child(9) { --adm-i: 8; }
+.adm-enter :nth-child(n+10) { --adm-i: 9; }
+.adm-flash { animation: adm-drop .35s var(--adm-ease-out); }
+
+/* Stat numbers count up (js/admin-motion.js). The real number stays in the page, unseen,
+   so the card keeps its size and anything that reads it (the CSV export) gets the true value. */
+.stat-value[data-count] { position: relative; color: transparent !important; font-variant-numeric: tabular-nums; }
+.stat-value[data-count]::after { content: attr(data-count); position: absolute; inset: 0; text-align: inherit; white-space: nowrap; color: var(--adm-count-color); }
+
+/* Charts: the bars grow from the baseline, left to right */
+.spark-bars .bar { transform-origin: bottom; animation: adm-bar .6s var(--adm-ease-out) calc(.2s + var(--adm-i, 0) * 50ms) backwards; }
+.spark-bars .bar:nth-child(2) { --adm-i: 1; }
+.spark-bars .bar:nth-child(3) { --adm-i: 2; }
+.spark-bars .bar:nth-child(4) { --adm-i: 3; }
+.spark-bars .bar:nth-child(5) { --adm-i: 4; }
+.spark-bars .bar:nth-child(6) { --adm-i: 5; }
+.spark-bars .bar:nth-child(n+7) { --adm-i: 6; }
+
+/* Sidebar and top bar */
+.adm-nav-item { transition: background-color .2s ease, color .2s ease; }
+.adm-nav-item svg { transition: transform .2s var(--adm-ease-out), color .2s ease; }
+a.adm-nav-item:hover svg { transform: translateX(2px); }
+a.adm-nav-item:active { transform: scale(.98); }
+.adm-count, .adm-bell-count { animation: adm-pop .4s var(--adm-ease-spring) .35s backwards; }
+.adm-bell { transition: background-color .15s, color .15s, transform .15s var(--adm-ease-out); }
+.adm-bell:active, .adm-menu-toggle:active { transform: scale(.92); }
+.adm-search { transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease; }
+.adm-search:focus-within { box-shadow: 0 0 0 3px rgba(233, 186, 50, .18); }
+
+/* The bell panel pops open from the bell */
+.adm-bell-panel:not([hidden]) { transform-origin: top right; animation: adm-menu .2s var(--adm-ease-out); }
+.bell-item button, .bell-tab, .bell-read-all, .bell-see-all { transition: background-color .15s ease, color .15s ease; }
+
+/* Pop-ups rise in over a fading backdrop; a filter panel drops open */
+dialog.adm-modal[open] { animation: adm-modal .25s var(--adm-ease-out); }
+dialog.adm-modal[open]::backdrop { animation: adm-fade .2s ease; }
+.filter-panel:not([hidden]) { animation: adm-drop .25s var(--adm-ease-out); }
+
+/* Buttons, tabs and cards: smooth hover, a small press, a small lift */
+.filter-button, .export-button, .dark-button, .manage-btn, .users-tab, .outline-chip, .adm-modal-close {
+  transition: transform .15s var(--adm-ease-out), border-color .15s ease, background-color .15s ease, color .15s ease, box-shadow .2s ease;
+}
+.filter-button:active, .export-button:active, .dark-button:active, .manage-btn:active, .users-tab:active { transform: scale(.97); transition-duration: .06s; }
+.adm-modal-close:hover { transform: rotate(90deg); }
+a.stat-card, button.stat-card { transition: border-color .2s ease, box-shadow .25s var(--adm-ease-out), transform .25s var(--adm-ease-out); }
+a.stat-card:hover, button.stat-card:hover { transform: translateY(-3px); }
+a.stat-card:active, button.stat-card:active { transform: translateY(-1px); }
+.switch::after { transition: transform .25s var(--adm-ease-spring); }
+.switch { transition: background-color .2s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .adm-enter *, .adm-flash, .spark-bars .bar, .adm-count, .adm-bell-count, .adm-bell-panel:not([hidden]),
+  dialog.adm-modal[open], dialog.adm-modal[open]::backdrop, .filter-panel:not([hidden]) { animation: none !important; }
+  .adm-sidebar, .adm-nav-item svg, .switch::after, a.stat-card, button.stat-card, .adm-modal-close { transition: none !important; }
+  a.stat-card:hover, button.stat-card:hover, .adm-modal-close:hover, a.adm-nav-item:hover svg { transform: none; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}

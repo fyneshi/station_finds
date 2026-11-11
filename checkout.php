@@ -254,7 +254,7 @@ function field($name, $label, $delivery, $errors, $opts = []) {
   <link rel="stylesheet" href="css/cart.css?v=6" />
   <link rel="stylesheet" href="css/header.css?v=3" />
   <link rel="stylesheet" href="css/responsive.css?v=3" />
-  <link rel="stylesheet" href="css/theme.css?v=2" />
+  <link rel="stylesheet" href="css/theme.css?v=3" />
   <script src="js/motion.js?v=1" defer></script>
 </head>
 <body>
@@ -426,7 +426,7 @@ function field($name, $label, $delivery, $errors, $opts = []) {
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=8"></script>
+  <script src="js/cart.js?v=9"></script>
   <script src="js/inbox.js?v=5"></script>
   <script>
     // Prevent double-submitting (e.g. placing the same order twice)

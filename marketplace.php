@@ -246,7 +246,7 @@ function render_no_results(string $type) {
   <link rel="stylesheet" href="css/marketplace.css?v=11" />
   <link rel="stylesheet" href="css/header.css?v=3" />
   <link rel="stylesheet" href="css/responsive.css?v=3" />
-  <link rel="stylesheet" href="css/theme.css?v=2" />
+  <link rel="stylesheet" href="css/theme.css?v=3" />
   <script src="js/motion.js?v=1" defer></script>
 </head>
 <body>
@@ -702,7 +702,7 @@ function render_no_results(string $type) {
   </div>
 
   <script src="js/favorites.js?v=4"></script>
-  <script src="js/cart.js?v=8"></script>
+  <script src="js/cart.js?v=9"></script>
   <script src="js/inbox.js?v=5"></script>
   <script>
     /* ── Tab switching logic ──────────────────────────────────── */

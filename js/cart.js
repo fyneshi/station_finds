@@ -67,8 +67,12 @@
   function setBadge(count) {
     count = parseInt(count, 10) || 0;
     document.querySelectorAll('.cart-badge').forEach(badge => {
-      badge.textContent = count > 9 ? '9+' : String(count);
+      const text = count > 9 ? '9+' : String(count);
+      const changed = badge.textContent.trim() !== text;
+      badge.textContent = text;
       badge.style.display = count > 0 ? '' : 'none';
+      // A new count makes the badge bounce (css/theme.css)
+      if (changed && count > 0) { badge.classList.remove('sf-bump'); void badge.offsetWidth; badge.classList.add('sf-bump'); }
     });
   }
 

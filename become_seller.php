@@ -188,7 +188,7 @@ $payoutMethod = $posted['payout_method'] ?? ($data['payout_method'] ?? 'gcash');
   <link rel="stylesheet" href="css/account.css?v=23" />
   <link rel="stylesheet" href="css/header.css?v=3" />
   <link rel="stylesheet" href="css/responsive.css?v=3" />
-  <link rel="stylesheet" href="css/theme.css?v=2" />
+  <link rel="stylesheet" href="css/theme.css?v=3" />
   <script src="js/motion.js?v=1" defer></script>
 </head>
 <body>
@@ -341,7 +341,7 @@ $payoutMethod = $posted['payout_method'] ?? ($data['payout_method'] ?? 'gcash');
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=8"></script>
+  <script src="js/cart.js?v=9"></script>
   <script src="js/inbox.js?v=5"></script>
   <?php sf_render_tabbar('account'); ?>
 </body>

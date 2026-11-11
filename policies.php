@@ -79,7 +79,7 @@ $e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
   <link rel="stylesheet" href="css/about.css?v=3" />
   <link rel="stylesheet" href="css/header.css?v=3" />
   <link rel="stylesheet" href="css/responsive.css?v=3" />
-  <link rel="stylesheet" href="css/theme.css?v=2" />
+  <link rel="stylesheet" href="css/theme.css?v=3" />
   <script src="js/motion.js?v=1" defer></script>
 </head>
 <body>
@@ -116,7 +116,7 @@ $e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 
   <?php sf_render_footer(); ?>
 
-  <script src="js/cart.js?v=8"></script>
+  <script src="js/cart.js?v=9"></script>
   <script src="js/inbox.js?v=5"></script>
   <?php sf_render_tabbar(''); ?>
 </body>
